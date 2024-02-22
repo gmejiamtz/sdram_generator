@@ -13,4 +13,4 @@ RUN sudo chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
 RUN sudo apt-get update
 RUN sudo apt-get install sbt
 #Install everything else
-RUN apt-get -y install git help2man perl python3 make autoconf g++ flex bison ccache cmake neofetch
+RUN apt-get -y install git help2man perl python3 make autoconf g++ flex bison ccache cmake neofetch verilator iverilog yosys
