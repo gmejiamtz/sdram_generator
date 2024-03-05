@@ -23,7 +23,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle{
     val cas = Output(Bool())
     val we  = Output(Bool()) 
     val address_bus = Output(UInt(p.address_width.W))
-    val data_out_and_in = 
+    val data_out_and_in = Output(UInt(p.address_width.W)) 
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
@@ -40,7 +40,7 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
     val write_data = Output(Vec(p.num_read_channels, Flipped(Valid(UInt(p.data_width.W)))))
     val write_start = Input(Vec(p.num_read_channels, Bool()))
     //wired to the actual sdram
-    val sdram_control = new ToSDRAM()
+    val sdram_control = new ToSDRAM(p)
     //debug purposes
     val state_out = Output(ControllerState())
 }
@@ -89,7 +89,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             }
         }
         is(ControllerState.reading){
-            
+            ???
         }
     }
 }
