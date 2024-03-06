@@ -44,6 +44,37 @@
 
 In this project, we provide a Chisel generator for SDRAM controllers.
 
+## Usage ##
+
+To use this generator follow the steps below:
+
+### Step 1
+
+Clone the repo:
+
+```git clone https://github.com/gmejiamtz/sdram_controller_generator.git```
+
+### Step 2
+
+Supply your config.json file and provide the generator its path:
+
+```bash
+cd sdram_controller_gen
+sbt run $PATH_TO_CONFIG_FILE
+  ```
+
+## To Do List ##
+
+Targetting Micron MT48LC1M16A1 SDRAM - 512K x 16 x 2 banks
+
+1. Build SDRAM controller state machine - In Progress
+
+2. Build SDRAM controller model - In Progress
+
+3. Generate tests for MT48LC1M16A1 controller - In Progress 
+
+4. Build Main program to generate Verilog - In Progress
+
 ## :hammer: Tools ##
 
 The following tools were used in this project:
