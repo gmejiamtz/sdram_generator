@@ -72,8 +72,13 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     val cas_counter = Counter(p.cas_latency)
     //counter to terminate write
     val terminate_write = Counter(p.t_rw_cycles)
+    //cycles to spam NOPs for SDRAM initialization
+    val cycles_for_100us = (Duration(100, MICROSECONDS).toNanos.toInt /p.period.toFloat).ceil.toInt
+    //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
+    val hundred_micro_sec_counter = Counter(cycles_for_100us + 3)
     //active to read or write counter
     val active_to_rw_counter = Counter(p.active_to_rw_delay)
+
     //Default SDRAM signals
     io.sdram_control.address_bus := DontCare
     io.sdram_control.data_out_and_in := DontCare
@@ -91,10 +96,31 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             //2. A Precharge 
             //3. 2 Auto Refresh
             //4. In Mode Programming mode
-            cas_counter.inc()
-            when(cas_counter.value === (p.cas_latency - 1).U){
+            //nop command for 100us
+            io.sdram_control.cs := false.B
+            io.sdram_control.ras := true.B
+            io.sdram_control.cas := true.B
+            io.sdram_control.we := true.B 
+            hundred_micro_sec_counter.inc()
+            //time to precharge
+            when(hundred_micro_sec_counter.value === cycles_for_100us.U){
+                io.sdram_control.cs := false.B
+                io.sdram_control.ras := false.B
+                io.sdram_control.cas := true.B
+                io.sdram_control.we := false.B  
+            } .elsewhen((hundred_micro_sec_counter.value === (cycles_for_100us + 1).U) | (hundred_micro_sec_counter.value === (cycles_for_100us + 2).U )){
+                //time to auto refresh
+                io.sdram_control.cs := false.B
+                io.sdram_control.ras := false.B
+                io.sdram_control.cas := false.B
+                io.sdram_control.we := true.B  
+            } .elsewhen(hundred_micro_sec_counter.value === (cycles_for_100us + 3).U){
+                //do a NOP?
+                io.sdram_control.cs := false.B
+                io.sdram_control.ras := true.B
+                io.sdram_control.cas := true.B
+                io.sdram_control.we := true.B     
                 state := ControllerState.idle
-                cas_counter.reset()
             }
         }
         is(ControllerState.idle){
