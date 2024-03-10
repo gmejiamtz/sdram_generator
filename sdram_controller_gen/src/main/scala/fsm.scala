@@ -93,7 +93,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     //cycles to spam NOPs for SDRAM initialization
     val cycles_for_100us = (Duration(100, MICROSECONDS).toNanos.toInt /p.period.toFloat).ceil.toInt
     //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
-    val hundred_micro_sec_counter = Counter(cycles_for_100us + 3)
+    val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
     //active to read or write counter
     val active_to_rw_counter = Counter(p.active_to_rw_delay)
 
