@@ -14,7 +14,7 @@ object MemModes extends ChiselEnum {
   val burstWriteFlag = 512.U
 }
 
-class MemModel(width: Int, banks: Int) {
+class MemModel(width: Int, banks: Int) extends Module {
   val rowWidth = 11
   val bankWidth = log2Ceil(banks)
   val colWidth = 8
@@ -56,7 +56,7 @@ class MemModel(width: Int, banks: Int) {
     }
   } .elsewhen (io.cmd === MemCommand.write) {
     when (io.writeEnable && bankRowValid(io.bankSel)) {
-      dram(realAddr) := io.wData & io.rwMask
+      dram(realAddr) := (io.wData & io.rwMask) | (dram(realAddr) & ~io.rwMask)
     }
   } .elsewhen (io.cmd === MemCommand.mode) {
     mode := io.addr
@@ -71,6 +71,6 @@ class MemModel(width: Int, banks: Int) {
   // Maybe stick a counter since last refresh per row/bank and start throwing errors after?
   // Probably want debug output for errors
   } .otherwise {
-    ???
+    
   }
 }
