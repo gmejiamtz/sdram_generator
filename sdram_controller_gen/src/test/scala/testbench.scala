@@ -98,13 +98,30 @@ class InitializationTest extends AnyFreeSpec with ChiselScalatestTester {
           dut.io.sdram_control.we.expect(true.B)
           dut.clock.step()
         }
-        //expect read command being sent
+        //expect read command being sent and send in an address
+        dut.io.read_col_addresses(0).poke(10.U)
         dut.io.sdram_control.cs.expect(false.B)
         dut.io.sdram_control.ras.expect(true.B)
         dut.io.sdram_control.cas.expect(false.B)
         dut.io.sdram_control.we.expect(true.B) 
+        dut.io.sdram_control.address_bus.expect(10.U)
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
+        //loop until cas latency is reached
+        for(time_in_read <- 0 until cas_latency){
+          dut.io.state_out.expect(ControllerState.reading) 
+          dut.io.read_data_valid(0).expect(false.B)
+          dut.clock.step()
+        }
+        //no clock step means this value is high on a transition
+        dut.io.read_data_valid(0).expect(true.B)
+        //expect precharge to end read
+        dut.io.sdram_control.cs.expect(false.B)
+        dut.io.sdram_control.ras.expect(false.B)
+        dut.io.sdram_control.cas.expect(true.B)
+        dut.io.sdram_control.we.expect(false.B)  
+        dut.clock.step()
+        dut.io.state_out.expect(ControllerState.idle)
         assert(true)
     }
   }

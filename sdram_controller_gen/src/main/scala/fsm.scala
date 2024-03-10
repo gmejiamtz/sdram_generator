@@ -89,7 +89,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     val stated_read = RegInit(false.B)
     val started_write = RegInit(false.B)
     //counter for read data being valid
-    val cas_counter = Counter(p.wanted_cas_latency)
+    val cas_counter = Counter(p.wanted_cas_latency + 1)
     //counter to terminate write
     val terminate_write = Counter(p.t_rw_cycles)
     //cycles to spam NOPs for SDRAM initialization
