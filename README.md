@@ -63,11 +63,24 @@ cd sdram_controller_gen
 sbt run $PATH_TO_CONFIG_FILE
   ```
 
+### Step 3 
+
+To test simply do the following commands:
+
+```bash
+cd sdram_controller_gen
+sbt test
+```
+
+Tests at the moment only test for initialization of an MT48LC1M16A1 Micron SDRAM. More will be
+added soon!
+
+
 ## To Do List ##
 
 Targetting Micron MT48LC1M16A1 SDRAM - 512K x 16 x 2 banks
 
-1. Build SDRAM controller state machine - In Progress
+1. Build SDRAM controller state machine - In Progress - Initialization Tested as working for 1 case
 
 2. Build SDRAM controller model - In Progress
 
