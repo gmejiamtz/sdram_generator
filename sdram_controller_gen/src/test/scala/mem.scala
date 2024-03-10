@@ -8,6 +8,26 @@ import org.scalatest.freespec.AnyFreeSpec
 import chisel3.experimental.BundleLiterals._
 import scala.concurrent.duration._
 
+class ShiftRegTest extends AnyFreeSpec with ChiselScalatestTester {
+  "Test shift; fixed CAS" in {
+    val slots = 2
+    test(new AdjustableShiftRegister(slots, Bool())) { dut =>
+      dut.io.shift.poke(slots.U)
+      for (i <- 0 to slots) {
+        dut.clock.step()
+        dut.io.output.valid.expect(false.B)
+      }
+      dut.io.input.bits.poke(true.B)
+      dut.io.input.valid.poke(true.B)
+      dut.clock.step()
+      dut.io.input.valid.poke(false.B)
+      dut.io.output.valid.expect(false.B)
+      dut.clock.step()
+      dut.io.output.valid.expect(true.B)
+    }
+  }
+}
+
 class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test read and write; single cell, full mask" in {
     val width = 8
