@@ -19,26 +19,26 @@ class MemModel(width: Int, banks: Int) {
   val bankWidth = log2Ceil(banks)
   val colWidth = 8
   
-  val io = IO(new Bundle
+  val io = IO(new Bundle{
     val writeEnable = Input(Bool())
     val commandEnable = Input(Bool())
     val addr = Input(UInt(rowWidth.W))
     val bankSel = Input(UInt(bankWidth.W))
-    val cmd = Input(MemCommand)
+    val cmd = Input(MemCommand())
     val rData = Output(UInt(width.W))
     val wData = Input(UInt(width.W))
     val rwMask = Input(UInt(width.W))
-  ))
+  })
 
-  val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W)))
-  val bankRow = RegInit(VecInit(banks, 0.U(rowWidth.W)))
-  val bankRowValid = RegInit(VecInit(banks, false.B))
+  val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W))
+  val bankRow = RegInit(VecInit.fill(banks)(0.U(rowWidth.W)))
+  val bankRowValid = RegInit(VecInit.fill(banks)(false.B))
   // Ignore the two reserved bits so we don't have to cat bankWidth
   val mode = RegInit(0.U(rowWidth.W))
 
   io.rData := DontCare
-  val realAddr = Cat(io.bankSel, Cat(bankRow(io.bankSel), io.addr(colWidth, 0))))
-  when (!commandEnable || cmd === MemCommand.nop) {
+  val realAddr = Cat(io.bankSel, Cat(bankRow(io.bankSel), io.addr(colWidth, 0)))
+  when (!io.commandEnable || io.cmd === MemCommand.nop) {
     // do nothing
   } .elsewhen (io.cmd === MemCommand.bankSel) {
     // Only activate a bank row if it is valid
@@ -54,16 +54,16 @@ class MemModel(width: Int, banks: Int) {
     when (bankRowValid(io.bankSel)) {
       io.rData := dram(realAddr) & io.rwMask
     }
-  } .elsewhen (cmd === MemCommand.write) {
+  } .elsewhen (io.cmd === MemCommand.write) {
     when (io.writeEnable && bankRowValid(io.bankSel)) {
       dram(realAddr) := io.wData & io.rwMask
     }
-  } .elsewhen (cmd === MemCommand.mode) {
-    mode := addr
-  } .elsewhen (cmd === MemCommand.precharge) {
+  } .elsewhen (io.cmd === MemCommand.mode) {
+    mode := io.addr
+  } .elsewhen (io.cmd === MemCommand.precharge) {
     when (io.addr(10)) {
       // Precharge all banks when io.addr(10) high
-      bankRowValid := VecInit(banks, false.B)
+      bankRowValid := VecInit.fill(banks)(false.B)
     } .otherwise {
       bankRowValid(io.bankSel) := false.B
     }
