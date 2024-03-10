@@ -1,4 +1,3 @@
-/*
 import chisel3._
 import chisel3.util._
 
@@ -20,7 +19,7 @@ class MemModel(width: Int, banks: Int) {
   val bankWidth = log2Ceil(banks)
   val colWidth = 8
   
-  val io = IO(new Bundle{
+  val io = IO(new Bundle
     val writeEnable = Input(Bool())
     val commandEnable = Input(Bool())
     val addr = Input(UInt(rowWidth.W))
@@ -29,17 +28,16 @@ class MemModel(width: Int, banks: Int) {
     val rData = Output(UInt(width.W))
     val wData = Input(UInt(width.W))
     val rwMask = Input(UInt(width.W))
-  }
-  )
+  ))
 
-  val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W))
+  val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W)))
   val bankRow = RegInit(VecInit(banks, 0.U(rowWidth.W)))
   val bankRowValid = RegInit(VecInit(banks, false.B))
   // Ignore the two reserved bits so we don't have to cat bankWidth
   val mode = RegInit(0.U(rowWidth.W))
 
   io.rData := DontCare
-  val realAddr = Cat(io.bankSel, Cat(bankRow(io.bankSel), io.addr(colWidth, 0)))
+  val realAddr = Cat(io.bankSel, Cat(bankRow(io.bankSel), io.addr(colWidth, 0))))
   when (!commandEnable || cmd === MemCommand.nop) {
     // do nothing
   } .elsewhen (io.cmd === MemCommand.bankSel) {
@@ -76,4 +74,3 @@ class MemModel(width: Int, banks: Int) {
     ???
   }
 }
-*/
