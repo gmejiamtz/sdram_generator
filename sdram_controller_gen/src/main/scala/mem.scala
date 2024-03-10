@@ -46,10 +46,10 @@ class AdjustableShiftRegister[T <: chisel3.Data](slots: Int, t: T) extends Modul
   }
 }
 
-class MemModel(width: Int, banks: Int) extends Module {
-  val rowWidth = 11
+class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) extends Module {
   val bankWidth = log2Ceil(banks)
-  val colWidth = 8
+  require(colWidth < rowWidth)
+  val autoPrechargeBit = rowWidth - 1
   
   val io = IO(new Bundle{
     val writeEnable = Input(Bool())
@@ -60,6 +60,10 @@ class MemModel(width: Int, banks: Int) extends Module {
     val rData = Output(UInt(width.W))
     val wData = Input(UInt(width.W))
     val rwMask = Input(UInt(width.W))
+    val debug = new Bundle {
+      val refresh = Output(UInt())
+      val opAddr = Valid(UInt(colWidth.W))
+    }
   })
 
   val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W))
@@ -68,21 +72,29 @@ class MemModel(width: Int, banks: Int) extends Module {
   // Ignore the two reserved bits so we don't have to cat bankWidth
   val mode = RegInit(0.U(rowWidth.W))
 
+  val opTimer = Reg(UInt(colWidth.W))
+  val opRunning = RegInit(false.B)
+  io.debug.opAddr.valid := opRunning
+  io.debug.opAddr.bits := opTimer
+
   // TODO: Parameterize number of cycles needed to refresh
   // Also make a separate counter that resets when refresh is low
   // so we have to hold refresh for a certain number of cycles for it to be effective
   // maybe? the first thing is probably sufficient honestly
-  // Probably want debug output for errors like this...
   val refreshCounter = RegInit(0.U(log2Ceil(2048).W))
-  when (io.cmd === MemCommand.refresh && !io.commandEnable) {
+  io.debug.refresh := refreshCounter
+  when (io.cmd === MemCommand.refresh && io.commandEnable) {
     refreshCounter := refreshCounter - 1.U
   } .elsewhen (refreshCounter >= 2048.U) {
+    // While it would be nice to actually do something here
+    // generating any kind of hardware that operates over any decently large section of memory
+    // would kill sbt. So we'll likely add something to start killing commands at this point
   } .otherwise {
     refreshCounter := refreshCounter + 1.U
   }
 
   io.rData := DontCare
-  val realAddr = Cat(io.bankSel, bankRow(io.bankSel), io.addr(colWidth, 0))
+  val realAddr = Cat(io.bankSel, bankRow(io.bankSel), Mux(opRunning, opTimer, io.addr(colWidth, 0)))
   when (!io.commandEnable || io.cmd === MemCommand.nop || io.cmd === MemCommand.refresh) {
     // do nothing
   } .elsewhen (io.cmd === MemCommand.bankSel) {
@@ -97,8 +109,26 @@ class MemModel(width: Int, banks: Int) extends Module {
   } .elsewhen (io.cmd === MemCommand.read) {
     when (bankRowValid(io.bankSel)) {
       io.rData := dram(realAddr) & io.rwMask
+      val willRun = Wire(Bool())
+      // TODO figure out how interleave's bit manipulation works
+      // it's not a simple xor 1 or reverse order
+      val orig = Mux(opRunning, opTimer, io.addr(colWidth, 0))
+      val nxt = orig + 1.U
+      when (mode(MemModes.burstPageBit)) {
+        opTimer := nxt
+        willRun := nxt =/= io.addr(colWidth, 0)
+      } .elsewhen ((mode & MemModes.burstLenMask) === 0.U) {
+        willRun := false.B
+      } .otherwise {
+        val thing = Cat(opTimer(colWidth - 1, 3), Mux((mode & MemModes.burstLenMask) === 3.U, nxt(2), orig(2)),
+          Mux((mode & MemModes.burstLenMask) >= 2.U, nxt(1), orig(1)), nxt(0))
+        opTimer := thing
+        willRun := thing =/= io.addr(colWidth, 0)
+      }
+      printf("%b %x\n", willRun, orig)
+      opRunning := willRun
       // Check auto precharge
-      when (io.addr(10)) {
+      when (!willRun && io.addr(autoPrechargeBit)) {
         bankRowValid(io.bankSel) := false.B
       }
     }
@@ -109,12 +139,13 @@ class MemModel(width: Int, banks: Int) extends Module {
   } .elsewhen (io.cmd === MemCommand.mode) {
     mode := io.addr
   } .elsewhen (io.cmd === MemCommand.precharge) {
-    when (io.addr(10)) {
-      // Precharge all banks when io.addr(10) high
+    when (io.addr(autoPrechargeBit)) {
+      // Precharge all banks when MSB of io.addr high
       bankRowValid := VecInit.fill(banks)(false.B)
     } .otherwise {
       bankRowValid(io.bankSel) := false.B
     }
   } .otherwise {
+    opRunning := false.B
   }
 }
