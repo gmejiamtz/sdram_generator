@@ -6,6 +6,7 @@ dist/*
 target/
 lib_managed/
 src_managed/
+test_run_dir/
 project/boot/
 project/plugins/project/
 project/local-plugins.sbt

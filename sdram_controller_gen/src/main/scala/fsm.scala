@@ -86,8 +86,10 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     val state = RegInit(ControllerState.initialization)
     //hold read data
     val read_data_reg = Reg(UInt(p.data_width.W))
+    val stated_read = RegInit(false.B)
+    val started_write = RegInit(false.B)
     //counter for read data being valid
-    val cas_counter = Counter(p.wanted_cas_latency)
+    val cas_counter = Counter(p.wanted_cas_latency + 1)
     //counter to terminate write
     val terminate_write = Counter(p.t_rw_cycles)
     //cycles to spam NOPs for SDRAM initialization
@@ -95,7 +97,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
     val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
     //active to read or write counter
-    val active_to_rw_counter = Counter(p.active_to_rw_delay)
+    val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
 
     //Default SDRAM signals
     io.sdram_control.address_bus := DontCare
@@ -165,8 +167,10 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 io.sdram_control.cas := true.B
                 io.sdram_control.we := true.B
                 when(io.read_start.exists(identity)){
+                    stated_read := true.B 
                     io.sdram_control.address_bus := io.read_row_addresses(0)
                 } .otherwise{
+                    started_write := true.B 
                     io.sdram_control.address_bus := io.write_row_addresses(0)
                 }
             }
@@ -174,8 +178,8 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
         is(ControllerState.active){
             state := ControllerState.active
             //read priority for now
-            val we_are_reading = io.read_start.exists(identity)
-            val we_are_writing = io.write_start.exists(identity)
+            val we_are_reading = stated_read
+            val we_are_writing = started_write
             active_to_rw_counter.inc()
             //nop command
             io.sdram_control.cs := false.B
@@ -184,19 +188,21 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             io.sdram_control.we := true.B 
             //address bus needs to hold row address
             io.sdram_control.address_bus := io.read_row_addresses(0)
-            when(we_are_reading & active_to_rw_counter.value === (p.active_to_rw_delay.U - 1.U)){
+            when(we_are_reading & active_to_rw_counter.value === (p.active_to_rw_delay.U)){
                 state := ControllerState.reading
                 //read command 
                 io.sdram_control.cs := false.B
                 io.sdram_control.ras := true.B
                 io.sdram_control.cas := false.B
                 io.sdram_control.we := true.B 
+                stated_read := false.B
                 //address bus now holds col address
                 io.sdram_control.address_bus := io.read_col_addresses(0)
                 cas_counter.reset()
             } .elsewhen(we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U - 1.U)){
                 state := ControllerState.writing
                 //write command 
+                started_write := false.B
                 io.sdram_control.cs := false.B
                 io.sdram_control.ras := true.B
                 io.sdram_control.cas := false.B
