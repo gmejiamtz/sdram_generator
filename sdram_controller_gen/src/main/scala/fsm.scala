@@ -53,7 +53,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle{
     //address to index row and col - shared in sdram
     val address_bus = Output(UInt(p.address_width.W))
     //when reading its output when writing it is input
-    val data_out_and_in = Analog((p.address_width.W))
+    //val data_out_and_in = Analog((p.data_width.W))
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
@@ -61,15 +61,18 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
     require(p.num_read_channels > 0)
     require(p.num_write_channels > 0)
     //read channels - for now vec is a vec of 1
-    val read_row_addresses = Input(Vec(p.num_read_channels, UInt(p.data_width.W)))
-    val read_col_addresses = Input(Vec(p.num_read_channels, UInt(p.data_width.W)))
-    val read_data = Output(Vec(p.num_read_channels, Valid(UInt(p.data_width.W))))
+    val read_row_addresses = Input(Vec(p.num_read_channels, UInt(p.address_width.W)))
+    val read_col_addresses = Input(Vec(p.num_read_channels, UInt(p.address_width.W)))
+    //data movement too hard due to bidirectional data TBA - focus on requests 
+    //val read_data = Vec(p.num_read_channels, Analog(p.data_width.W))
+    val read_data_valid = Vec(p.num_read_channels, Bool()) 
     //read start 
     val read_start = Input(Vec(p.num_read_channels, Bool()))
     //write channels
-    val write_row_addresses = Input(Vec(p.num_read_channels, UInt(p.data_width.W)))
-    val write_col_addresses = Input(Vec(p.num_read_channels, UInt(p.data_width.W)))
-    val write_data = Input(Vec(p.num_read_channels, Flipped(Valid(UInt(p.data_width.W)))))
+    val write_row_addresses = Input(Vec(p.num_read_channels, UInt(p.address_width.W)))
+    val write_col_addresses = Input(Vec(p.num_read_channels, UInt(p.address_width.W)))
+    //val write_data = Vec(p.num_read_channels, Analog(p.data_width.W))
+    val write_data_valid = Vec(p.num_read_channels, Bool()) 
     val write_start = Input(Vec(p.num_read_channels, Bool()))
     //wired to the actual sdram
     val sdram_control = new ToSDRAM(p)
@@ -81,6 +84,8 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     val io = IO(new SDRAMControllerIO(p))
     //initialization is a to be added feature for now just wait a cycles then go to idle
     val state = RegInit(ControllerState.initialization)
+    //hold read data
+    val read_data_reg = Reg(UInt(p.data_width.W))
     //counter for read data being valid
     val cas_counter = Counter(p.wanted_cas_latency)
     //counter to terminate write
@@ -88,18 +93,21 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     //cycles to spam NOPs for SDRAM initialization
     val cycles_for_100us = (Duration(100, MICROSECONDS).toNanos.toInt /p.period.toFloat).ceil.toInt
     //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
-    val hundred_micro_sec_counter = Counter(cycles_for_100us + 3)
+    val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
     //active to read or write counter
     val active_to_rw_counter = Counter(p.active_to_rw_delay)
 
     //Default SDRAM signals
     io.sdram_control.address_bus := DontCare
-    io.sdram_control.data_out_and_in := DontCare
+    //io.sdram_control.data_out_and_in := DontCare
     io.sdram_control.cs := DontCare
     io.sdram_control.ras := DontCare
     io.sdram_control.cas := DontCare
     io.sdram_control.we := DontCare
-    //
+    //other outputs
+    io.state_out := state
+    io.read_data_valid(0) := false.B
+    io.write_data_valid(0) := false.B 
     switch(state){
         is(ControllerState.initialization){
             //for now just wait the cas latency
@@ -157,9 +165,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 io.sdram_control.cas := true.B
                 io.sdram_control.we := true.B
                 when(io.read_start.exists(identity)){
-                    io.sdram_control.address_bus := io.read_row_addresses
+                    io.sdram_control.address_bus := io.read_row_addresses(0)
                 } .otherwise{
-                    io.sdram_control.address_bus := io.write_row_addresses
+                    io.sdram_control.address_bus := io.write_row_addresses(0)
                 }
             }
         }
@@ -184,7 +192,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 io.sdram_control.cas := false.B
                 io.sdram_control.we := true.B 
                 //address bus now holds col address
-                io.sdram_control.address_bus := io.read_col_addresses
+                io.sdram_control.address_bus := io.read_col_addresses(0)
                 cas_counter.reset()
             } .elsewhen(we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U - 1.U)){
                 state := ControllerState.writing
@@ -194,7 +202,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 io.sdram_control.cas := false.B
                 io.sdram_control.we := false.B
                 //address bus now holds col address
-                io.sdram_control.address_bus := io.write_col_addresses
+                io.sdram_control.address_bus := io.write_col_addresses(0)
             }
         }
         is(ControllerState.reading){
@@ -207,10 +215,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             io.sdram_control.we := true.B 
             when(cas_counter.value === p.cas_latency){
                 //data is valid
-                io.read_data(0).valid := true.B
-                //data bits are outputs
-                io.read_data(0).bits := io.sdram_control.data_out_and_in
+                io.read_data_valid(0) := true.B
                 //precharge command
+                //io.read_data := read_data_reg
                 io.sdram_control.cs := false.B
                 io.sdram_control.ras := false.B
                 io.sdram_control.cas := true.B
