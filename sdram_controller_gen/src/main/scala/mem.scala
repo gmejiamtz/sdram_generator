@@ -36,9 +36,24 @@ class MemModel(width: Int, banks: Int) extends Module {
   // Ignore the two reserved bits so we don't have to cat bankWidth
   val mode = RegInit(0.U(rowWidth.W))
 
+  // TODO: Parameterize number of cycles needed to refresh
+  // Also make a separate counter that resets when refresh is low
+  // so we have to hold refresh for a certain number of cycles for it to be effective
+  // maybe? the first thing is probably sufficient honestly
+  val refreshCounter = RegInit(0.U(log2Ceil(2048).W))
+  when (io.cmd === MemCommand.refresh && !io.commandEnable) {
+    refreshCounter := refreshCounter - 1.U
+  } .elsewhen (refreshCounter >= 2048.U) {
+    for (i <- 0 until 1 << (bankWidth + rowWidth + colWidth)) {
+      dram(i) := 0.U
+    }
+  } .otherwise {
+    refreshCounter := refreshCounter + 1.U
+  }
+
   io.rData := DontCare
   val realAddr = Cat(io.bankSel, Cat(bankRow(io.bankSel), io.addr(colWidth, 0)))
-  when (!io.commandEnable || io.cmd === MemCommand.nop) {
+  when (!io.commandEnable || io.cmd === MemCommand.nop || io.cmd === MemCommand.refresh) {
     // do nothing
   } .elsewhen (io.cmd === MemCommand.bankSel) {
     // Only activate a bank row if it is valid
@@ -53,6 +68,9 @@ class MemModel(width: Int, banks: Int) extends Module {
   } .elsewhen (io.cmd === MemCommand.read) {
     when (bankRowValid(io.bankSel)) {
       io.rData := dram(realAddr) & io.rwMask
+      when (io.addr(10)) {
+        bankRowValid(io.bankSel) := false.B
+      }
     }
   } .elsewhen (io.cmd === MemCommand.write) {
     when (io.writeEnable && bankRowValid(io.bankSel)) {
@@ -70,6 +88,8 @@ class MemModel(width: Int, banks: Int) extends Module {
   // TODO: How should we verify refresh? Need to parameterize decay rate in cycles
   // Maybe stick a counter since last refresh per row/bank and start throwing errors after?
   // Probably want debug output for errors
+  } .elsewhen (io.cmd === MemCommand.refresh) {
+
   } .otherwise {
     
   }
