@@ -9,7 +9,7 @@ object MemModes extends ChiselEnum {
   val burstLenMask = 3.U
   val burstPageBit = 2
   val burstTypeBit = 3
-  def casLatency(i: chisel3.UInt) = i(7, 5)
+  def casLatency(i: chisel3.UInt) = i(5, 4)
   val burstWriteBit = 9
 }
 
@@ -45,10 +45,11 @@ class AdjustableShiftRegister[T <: chisel3.Data](slots: Int, t: T) extends Modul
   }
 }
 
-class MemModelCASEntry(addrWidth: Int) extends Bundle {
+class MemModelCASEntry(addrWidth: Int, bankWidth: Int) extends Bundle {
   val isWrite = Bool()
   val precharge = Bool()
   val addr = UInt(addrWidth.W)
+  val bankSel = UInt(bankWidth.W)
 }
 
 class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) extends Module {
@@ -69,7 +70,7 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
     val rwMask = Input(UInt(width.W))
     val debug = new Bundle {
       val refresh = Output(UInt())
-      val opAddr = Valid(new MemModelCASEntry(colWidth))
+      val opAddr = Valid(new MemModelCASEntry(colWidth, bankWidth))
     }
   })
   io.rData := DontCare
@@ -78,15 +79,16 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
   val bankRow = RegInit(VecInit.fill(banks)(0.U(rowWidth.W)))
   val bankRowValid = RegInit(VecInit.fill(banks)(false.B))
   // Ignore the two reserved bits so we don't have to cat bankWidth
-  val mode = RegInit(0.U(rowWidth.W))
+  val mode = RegInit(16.U(rowWidth.W))
 
   // Read CAS registers/connections
-  val opData = Reg(new MemModelCASEntry(colWidth))
-  val casRegister = Module(new AdjustableShiftRegister(2, new MemModelCASEntry(colWidth)))
+  val opData = Reg(new MemModelCASEntry(colWidth, bankWidth))
+  val casRegister = Module(new AdjustableShiftRegister(2, new MemModelCASEntry(colWidth, bankWidth)))
   casRegister.io.shift := MemModes.casLatency(mode) - 1.U
   casRegister.io.input.bits.isWrite := io.cmd === MemCommand.write
   casRegister.io.input.bits.precharge := io.addr(autoPrechargeBit)
   casRegister.io.input.bits.addr := io.addr(colWidth, 0)
+  casRegister.io.input.bits.bankSel := io.bankSel
   casRegister.io.input.valid := io.cmd.isOneOf(MemCommand.read, MemCommand.write)
   val opRunning = RegInit(false.B)
   val opStartAt = RegEnable(casRegister.io.output.bits.addr, casRegister.io.output.valid)
@@ -98,8 +100,9 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
   // but I'll let it slide for now
   when (casRegister.io.output.valid || opRunning) {
     val src = Mux(casRegister.io.output.valid, casRegister.io.output.bits, opData)
-    val realAddr = Cat(io.bankSel, bankRow(io.bankSel), src.addr)
-    when (bankRowValid(io.bankSel)) {
+    opData := src
+    val realAddr = Cat(src.bankSel, bankRow(io.bankSel), src.addr)
+    when (bankRowValid(src.bankSel)) {
       when (src.isWrite && io.writeEnable) {
         dram(realAddr) := (io.wData & io.rwMask) | (dram(realAddr) & ~io.rwMask)
       } .otherwise {
@@ -121,8 +124,6 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
       opData.addr := thing
       willRun := casRegister.io.output.valid || thing =/= opStartAt
     }
-    opData.precharge := src.precharge
-    opData.isWrite := src.isWrite
 
     // Precharge if needed
     opRunning := willRun
