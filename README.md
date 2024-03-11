@@ -60,8 +60,10 @@ Supply your config.json file and provide the generator its path:
 
 ```bash
 cd sdram_controller_gen
-sbt run $PATH_TO_CONFIG_FILE
+sbt -Xmx2048M run $PATH_TO_CONFIG_FILE
   ```
+
+It may be useful to set `SBT_OPTS` to `-Xmx2048M` so that you do not have to type it multiple times.
 
 ### Step 3 
 
@@ -69,12 +71,11 @@ To test simply do the following commands:
 
 ```bash
 cd sdram_controller_gen
-sbt test
+sbt -Xmx2048M test
 ```
 
 Tests at the moment only test for initialization of an MT48LC1M16A1 Micron SDRAM. More will be
 added soon!
-
 
 ## To Do List ##
 
@@ -82,7 +83,7 @@ Targetting Micron MT48LC1M16A1 SDRAM - 512K x 16 x 2 banks
 
 1. Build SDRAM controller state machine - In Progress - Initialization Tested as working for 1 case
 
-2. Build SDRAM controller model - In Progress
+2. Build SDRAM controller model - In Progress - Mostly complete, needs more rigorous testing, proper decay parameterization
 
 3. Generate tests for MT48LC1M16A1 controller - In Progress 
 

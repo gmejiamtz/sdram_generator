@@ -33,6 +33,9 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
     val width = 8
     val banks = 2
     test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {dut =>
+      dut.io.addr.poke(16.U)
+      dut.io.cmd.poke(MemCommand.mode)
+      dut.clock.step()
       dut.io.bankSel.poke(0.U)
       dut.io.rwMask.poke(((1 << width) - 1).U)
       dut.io.addr.poke(1.U)
@@ -68,6 +71,9 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
     val width = 8
     val banks = 2
     test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {dut =>
+      dut.io.addr.poke(16.U)
+      dut.io.cmd.poke(MemCommand.mode)
+      dut.clock.step()
       dut.io.bankSel.poke(0.U)
       dut.io.rwMask.poke(0xFF.U)
       dut.io.addr.poke(1.U)
@@ -106,7 +112,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
     test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {dut =>
       dut.io.bankSel.poke(0.U)
       dut.io.rwMask.poke(((1 << width) - 1).U)
-      dut.io.addr.poke(513.U)
+      dut.io.addr.poke(81.U)
       dut.io.cmd.poke(MemCommand.mode)
       dut.io.commandEnable.poke(true.B)
       dut.clock.step()
@@ -126,6 +132,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.io.cmd.poke(MemCommand.read)
       dut.clock.step()
       dut.io.rData.expect(0x55.U)
+      dut.io.cmd.poke(MemCommand.nop)
       dut.clock.step()
       dut.io.rData.expect(0xAA.U)
     }
@@ -137,10 +144,11 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
     test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {dut =>
       dut.io.bankSel.poke(0.U)
       dut.io.rwMask.poke(((1 << width) - 1).U)
-      dut.io.addr.poke(1.U)
+      dut.io.addr.poke(17.U)
       dut.io.cmd.poke(MemCommand.mode)
       dut.io.commandEnable.poke(true.B)
       dut.clock.step()
+      dut.io.addr.poke(1.U)
       dut.io.cmd.poke(MemCommand.active)
       dut.clock.step()
       // Write 0xAA,0x55 to bank 0, row 1, col 2-3
@@ -150,11 +158,49 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.io.writeEnable.poke(true.B)
       dut.clock.step()
       dut.io.wData.poke(0x55.U)
+      dut.io.cmd.poke(MemCommand.nop)
       dut.clock.step()
       // Read back in reverse order
       dut.io.writeEnable.poke(false.B)
       dut.io.addr.poke(3.U)
       dut.io.cmd.poke(MemCommand.read)
+      dut.clock.step()
+      dut.io.rData.expect(0x55.U)
+      dut.io.cmd.poke(MemCommand.nop)
+      dut.clock.step()
+      dut.io.rData.expect(0xAA.U)
+    }
+  }
+
+  "Test CAS latency" in {
+    val width = 8
+    val banks = 2
+    test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {dut =>
+      dut.io.bankSel.poke(0.U)
+      dut.io.rwMask.poke(((1 << width) - 1).U)
+      dut.io.addr.poke(17.U)
+      dut.io.cmd.poke(MemCommand.mode)
+      dut.io.commandEnable.poke(true.B)
+      dut.clock.step()
+      dut.io.addr.poke(1.U)
+      dut.io.cmd.poke(MemCommand.active)
+      dut.clock.step()
+      // Write 0xAA,0x55 to bank 0, row 1, col 2-3
+      dut.io.addr.poke(2.U)
+      dut.io.wData.poke((0xAA).U)
+      dut.io.cmd.poke(MemCommand.write)
+      dut.io.writeEnable.poke(true.B)
+      dut.clock.step()
+      dut.io.wData.poke(0x55.U)
+      dut.io.addr.poke(33.U)
+      dut.io.cmd.poke(MemCommand.mode)
+      dut.clock.step()
+      // Read back in reverse order
+      dut.io.writeEnable.poke(false.B)
+      dut.io.addr.poke(3.U)
+      dut.io.cmd.poke(MemCommand.read)
+      dut.clock.step()
+      dut.io.cmd.poke(MemCommand.nop)
       dut.clock.step()
       dut.io.rData.expect(0x55.U)
       dut.clock.step()
