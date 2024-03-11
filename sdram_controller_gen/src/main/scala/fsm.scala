@@ -91,7 +91,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     //counter for read data being valid
     val cas_counter = Counter(p.wanted_cas_latency + 1)
     //counter to terminate write
-    val terminate_write = Counter(p.t_rw_cycles)
+    val terminate_write = Counter(p.t_rw_cycles + 1)
     //cycles to spam NOPs for SDRAM initialization
     val cycles_for_100us = (Duration(100, MICROSECONDS).toNanos.toInt /p.period.toFloat).ceil.toInt
     //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
@@ -232,6 +232,12 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             }
         }
         is(ControllerState.writing){
+            terminate_write.inc()
+            //send nops
+            io.sdram_control.cs := false.B
+            io.sdram_control.ras := true.B
+            io.sdram_control.cas := true.B
+            io.sdram_control.we := true.B
             when(terminate_write.value === p.t_rw_cycles.U){
                 //precharge command
                 io.sdram_control.cs := false.B

@@ -122,7 +122,7 @@ class InitializationTest extends AnyFreeSpec with ChiselScalatestTester {
         dut.io.sdram_control.we.expect(false.B)  
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
-        assert(true)
+        //read done
     }
   }
 }
