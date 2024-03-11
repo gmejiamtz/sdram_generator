@@ -2,8 +2,7 @@ import chisel3._
 import chisel3.util._
 
 object MemCommand extends ChiselEnum {
-  val nop, bankSel, read, write, endBurst, precharge, refresh, mode = Value
-  val active = bankSel
+  val nop, active, read, write, terminate, precharge, refresh, mode = Value
 }
 
 object MemModes extends ChiselEnum {
@@ -46,9 +45,17 @@ class AdjustableShiftRegister[T <: chisel3.Data](slots: Int, t: T) extends Modul
   }
 }
 
+class MemModelCASEntry(addrWidth: Int) extends Bundle {
+  val isWrite = Bool()
+  val precharge = Bool()
+  val addr = UInt(addrWidth.W)
+}
+
 class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) extends Module {
   val bankWidth = log2Ceil(banks)
   require(colWidth < rowWidth)
+  require(banks > 1)
+  require(colWidth > 3)
   val autoPrechargeBit = rowWidth - 1
   
   val io = IO(new Bundle{
@@ -62,9 +69,10 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
     val rwMask = Input(UInt(width.W))
     val debug = new Bundle {
       val refresh = Output(UInt())
-      val opAddr = Valid(UInt(colWidth.W))
+      val opAddr = Valid(new MemModelCASEntry(colWidth))
     }
   })
+  io.rData := DontCare
 
   val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W))
   val bankRow = RegInit(VecInit.fill(banks)(0.U(rowWidth.W)))
@@ -72,30 +80,55 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
   // Ignore the two reserved bits so we don't have to cat bankWidth
   val mode = RegInit(0.U(rowWidth.W))
 
-  val opTimer = Reg(UInt(colWidth.W))
+  // Read CAS registers/connections
+  val opData = Reg(new MemModelCASEntry(colWidth))
+  val casRegister = Module(new AdjustableShiftRegister(2, new MemModelCASEntry(colWidth)))
+  casRegister.io.shift := MemModes.casLatency(mode) - 1.U
+  casRegister.io.input.bits.isWrite := io.cmd === MemCommand.write
+  casRegister.io.input.bits.precharge := io.addr(autoPrechargeBit)
+  casRegister.io.input.bits.addr := io.addr(colWidth, 0)
+  casRegister.io.input.valid := io.cmd.isOneOf(MemCommand.read, MemCommand.write)
   val opRunning = RegInit(false.B)
+  val opStartAt = RegEnable(casRegister.io.output.bits.addr, casRegister.io.output.valid)
   io.debug.opAddr.valid := opRunning
-  io.debug.opAddr.bits := opTimer
+  io.debug.opAddr.bits := opData
 
-  def updateAddr(isWrite: Boolean): Bool = {
+  // Read/write logic
+  // These should technically be interrupted when the current command is not NOP
+  // but I'll let it slide for now
+  when (casRegister.io.output.valid || opRunning) {
+    val src = Mux(casRegister.io.output.valid, casRegister.io.output.bits, opData)
+    val realAddr = Cat(io.bankSel, bankRow(io.bankSel), src.addr)
+    when (bankRowValid(io.bankSel)) {
+      when (src.isWrite && io.writeEnable) {
+        dram(realAddr) := (io.wData & io.rwMask) | (dram(realAddr) & ~io.rwMask)
+      } .otherwise {
+        io.rData := dram(realAddr) & io.rwMask
+      }
+    }
+
+    // Address increment logic
     val willRun = Wire(Bool())
-    // TODO figure out how interleave's bit manipulation works
-    // it's not a simple xor 1 or reverse order
-    val orig = Mux(opRunning, opTimer, io.addr(colWidth, 0))
-    val nxt = orig + 1.U
+    val nxt = src.addr + 1.U
     when (mode(MemModes.burstPageBit)) {
-      opTimer := nxt
-      willRun := nxt =/= io.addr(colWidth, 0)
-    } .elsewhen ((mode & MemModes.burstLenMask) === 0.U || (if (isWrite) mode(MemModes.burstWriteBit) else false.B)) {
+      opData.addr := nxt
+      willRun := casRegister.io.output.valid || nxt =/= opStartAt
+    } .elsewhen ((mode & MemModes.burstLenMask) === 0.U || (src.isWrite && mode(MemModes.burstWriteBit))) {
       willRun := false.B
     } .otherwise {
-      val thing = Cat(opTimer(colWidth - 1, 3), Mux((mode & MemModes.burstLenMask) === 3.U, nxt(2), orig(2)),
-        Mux((mode & MemModes.burstLenMask) >= 2.U, nxt(1), orig(1)), nxt(0))
-      opTimer := thing
-      willRun := thing =/= io.addr(colWidth, 0)
+      val thing = Cat(src.addr(colWidth - 1, 3), Mux((mode & MemModes.burstLenMask) === 3.U, nxt(2), src.addr(2)),
+        Mux((mode & MemModes.burstLenMask) >= 2.U, nxt(1), src.addr(1)), nxt(0))
+      opData.addr := thing
+      willRun := casRegister.io.output.valid || thing =/= opStartAt
     }
+    opData.precharge := src.precharge
+    opData.isWrite := src.isWrite
+
+    // Precharge if needed
     opRunning := willRun
-    willRun
+    when (!willRun && !src.isWrite && src.precharge) {
+      bankRowValid(io.bankSel) := false.B
+    }
   }
 
   // TODO: Parameterize number of cycles needed to refresh
@@ -105,7 +138,9 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
   val refreshCounter = RegInit(0.U(log2Ceil(2048).W))
   io.debug.refresh := refreshCounter
   when (io.cmd === MemCommand.refresh && io.commandEnable) {
-    refreshCounter := refreshCounter - 1.U
+    when (refreshCounter > 0.U) {
+      refreshCounter := refreshCounter - 1.U
+    }
   } .elsewhen (refreshCounter >= 2048.U) {
     // While it would be nice to actually do something here
     // generating any kind of hardware that operates over any decently large section of memory
@@ -114,34 +149,13 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
     refreshCounter := refreshCounter + 1.U
   }
 
-  io.rData := DontCare
-  val realAddr = Cat(io.bankSel, bankRow(io.bankSel), Mux(opRunning, opTimer, io.addr(colWidth, 0)))
-  when (!io.commandEnable || io.cmd === MemCommand.nop || io.cmd === MemCommand.refresh) {
+  when (!io.commandEnable) {
     // do nothing
-  } .elsewhen (io.cmd === MemCommand.bankSel) {
+  } .elsewhen (io.cmd === MemCommand.active) {
     // Only activate a bank row if it is valid
     when (!bankRowValid(io.bankSel)) {
       bankRow(io.bankSel) := io.addr
       bankRowValid(io.bankSel) := true.B
-    }
-    // TODO ajustable CAS
-    // assume will not change when outstanding command in queue
-    // command starts being processed after CAS - 1 cycles, interrupting current cmd
-  } .elsewhen (io.cmd === MemCommand.read) {
-    when (bankRowValid(io.bankSel)) {
-      io.rData := dram(realAddr) & io.rwMask
-      val willRun = updateAddr(false)
-      // Check auto precharge
-      when (!willRun && io.addr(autoPrechargeBit)) {
-        bankRowValid(io.bankSel) := false.B
-      }
-    }
-  } .elsewhen (io.cmd === MemCommand.write) {
-    when (bankRowValid(io.bankSel)) {
-      when (io.writeEnable) {
-        dram(realAddr) := (io.wData & io.rwMask) | (dram(realAddr) & ~io.rwMask)
-      }
-      updateAddr(true)
     }
   } .elsewhen (io.cmd === MemCommand.mode) {
     mode := io.addr
@@ -152,7 +166,7 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
     } .otherwise {
       bankRowValid(io.bankSel) := false.B
     }
-  } .otherwise {
+  } .elsewhen (io.cmd === MemCommand.terminate) {
     opRunning := false.B
   }
 }
