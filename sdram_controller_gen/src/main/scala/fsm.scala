@@ -69,11 +69,11 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
     //read start 
     val read_start = Input(Vec(p.num_read_channels, Bool()))
     //write channels
-    val write_row_addresses = Input(Vec(p.num_read_channels, UInt(p.address_width.W)))
-    val write_col_addresses = Input(Vec(p.num_read_channels, UInt(p.address_width.W)))
+    val write_row_addresses = Input(Vec(p.num_write_channels, UInt(p.address_width.W)))
+    val write_col_addresses = Input(Vec(p.num_write_channels, UInt(p.address_width.W)))
     //val write_data = Vec(p.num_read_channels, Analog(p.data_width.W))
-    val write_data_valid = Vec(p.num_read_channels, Bool()) 
-    val write_start = Input(Vec(p.num_read_channels, Bool()))
+    val write_data_valid = Vec(p.num_write_channels, Bool()) 
+    val write_start = Input(Vec(p.num_write_channels, Bool()))
     //wired to the actual sdram
     val sdram_control = new ToSDRAM(p)
     //debug purposes
@@ -98,6 +98,55 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
     //active to read or write counter
     val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
+    //functions to send commands
+    def sendNop(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := true.B
+        io.sdram_control.cas := true.B
+        io.sdram_control.we := true.B  
+    }
+
+    def sendPrecharge(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := false.B
+        io.sdram_control.cas := true.B
+        io.sdram_control.we := false.B 
+    }
+
+    def sendRefresh(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := false.B
+        io.sdram_control.cas := false.B
+        io.sdram_control.we := true.B  
+    }
+
+    def sendModeProg(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := false.B
+        io.sdram_control.cas := false.B
+        io.sdram_control.we := false.B  
+    }
+
+    def sendActive(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := false.B
+        io.sdram_control.cas := true.B
+        io.sdram_control.we := true.B
+    }
+
+    def sendRead(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := true.B
+        io.sdram_control.cas := false.B
+        io.sdram_control.we := true.B 
+    }
+
+    def sendWrite(): Unit = {
+        io.sdram_control.cs := false.B
+        io.sdram_control.ras := true.B
+        io.sdram_control.cas := false.B
+        io.sdram_control.we := false.B
+    }
 
     //Default SDRAM signals
     io.sdram_control.address_bus := DontCare
@@ -112,37 +161,23 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
     io.write_data_valid(0) := false.B 
     switch(state){
         is(ControllerState.initialization){
-            //for now just wait the cas latency
-            //later each sdram will require its own init
-            //module
+            //later each sdram will require its own init module
             //1. NOPs for 100us
             //2. A Precharge 
             //3. 2 Auto Refresh
             //4. In Mode Programming mode
             //nop command for 100us
-            io.sdram_control.cs := false.B
-            io.sdram_control.ras := true.B
-            io.sdram_control.cas := true.B
-            io.sdram_control.we := true.B 
+            sendNop()
             hundred_micro_sec_counter.inc()
             //time to precharge
             when(hundred_micro_sec_counter.value === cycles_for_100us.U){
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := false.B
-                io.sdram_control.cas := true.B
-                io.sdram_control.we := false.B  
+                sendPrecharge()
             } .elsewhen((hundred_micro_sec_counter.value === (cycles_for_100us + 1).U) | (hundred_micro_sec_counter.value === (cycles_for_100us + 2).U )){
                 //time to auto refresh
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := false.B
-                io.sdram_control.cas := false.B
-                io.sdram_control.we := true.B  
+                sendRefresh()
             } .elsewhen(hundred_micro_sec_counter.value === (cycles_for_100us + 3).U){
                 //time to program 
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := false.B
-                io.sdram_control.cas := false.B
-                io.sdram_control.we := false.B    
+                sendModeProg()
                 //address holds programmed options
                 //12'b00_wb_opcode_cas_bT_bL
                 io.sdram_control.address_bus := Cat(0.U(2.W),p.write_burst,p.opcode,p.cas_latency,p.burst_type,p.burst_length)
@@ -155,17 +190,11 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             //address holds row right now
             val go_to_active = io.read_start.exists(identity) | io.write_start.exists(identity) 
             //nop command
-            io.sdram_control.cs := false.B
-            io.sdram_control.ras := true.B
-            io.sdram_control.cas := true.B
-            io.sdram_control.we := true.B 
+            sendNop()
             when(go_to_active){
                 state := ControllerState.active
                 //active command - make this a function 
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := false.B
-                io.sdram_control.cas := true.B
-                io.sdram_control.we := true.B
+                sendActive()
                 when(io.read_start.exists(identity)){
                     stated_read := true.B 
                     io.sdram_control.address_bus := io.read_row_addresses(0)
@@ -182,19 +211,13 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             val we_are_writing = started_write
             active_to_rw_counter.inc()
             //nop command
-            io.sdram_control.cs := false.B
-            io.sdram_control.ras := true.B
-            io.sdram_control.cas := true.B
-            io.sdram_control.we := true.B 
+            sendNop()
             //address bus needs to hold row address
             io.sdram_control.address_bus := io.read_row_addresses(0)
             when(we_are_reading & active_to_rw_counter.value === (p.active_to_rw_delay.U)){
                 state := ControllerState.reading
                 //read command 
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := true.B
-                io.sdram_control.cas := false.B
-                io.sdram_control.we := true.B 
+                sendRead() 
                 stated_read := false.B
                 //address bus now holds col address
                 io.sdram_control.address_bus := io.read_col_addresses(0)
@@ -203,10 +226,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 state := ControllerState.writing
                 //write command 
                 started_write := false.B
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := true.B
-                io.sdram_control.cas := false.B
-                io.sdram_control.we := false.B
+                
                 //address bus now holds col address
                 io.sdram_control.address_bus := io.write_col_addresses(0)
             }
@@ -215,35 +235,24 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
             state := ControllerState.reading
             cas_counter.inc()
             //nop command
-            io.sdram_control.cs := false.B
-            io.sdram_control.ras := true.B
-            io.sdram_control.cas := true.B
-            io.sdram_control.we := true.B 
+            sendNop()
             when(cas_counter.value === p.cas_latency){
                 //data is valid
                 io.read_data_valid(0) := true.B
                 //precharge command
                 //io.read_data := read_data_reg
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := false.B
-                io.sdram_control.cas := true.B
-                io.sdram_control.we := false.B  
+                sendPrecharge()
                 state := ControllerState.idle
             }
         }
         is(ControllerState.writing){
             terminate_write.inc()
             //send nops
-            io.sdram_control.cs := false.B
-            io.sdram_control.ras := true.B
-            io.sdram_control.cas := true.B
-            io.sdram_control.we := true.B
+            sendNop()
             when(terminate_write.value === p.t_rw_cycles.U){
                 //precharge command
-                io.sdram_control.cs := false.B
-                io.sdram_control.ras := false.B
-                io.sdram_control.cas := true.B
-                io.sdram_control.we := false.B  
+                sendPrecharge()
+                io.write_data_valid(0) := true.B
                 state := ControllerState.idle 
             }
         }
