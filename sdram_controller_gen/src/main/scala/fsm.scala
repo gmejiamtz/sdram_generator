@@ -198,7 +198,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 when(io.read_start.exists(identity)){
                     stated_read := true.B 
                     io.sdram_control.address_bus := io.read_row_addresses(0)
-                } .otherwise{
+                } .elsewhen(io.write_start.exists(identity)){
                     started_write := true.B 
                     io.sdram_control.address_bus := io.write_row_addresses(0)
                 }
@@ -222,11 +222,11 @@ class SDRAMController(p: SDRAMControllerParams) extends Module{
                 //address bus now holds col address
                 io.sdram_control.address_bus := io.read_col_addresses(0)
                 cas_counter.reset()
-            } .elsewhen(we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U - 1.U)){
+            } .elsewhen(we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)){
                 state := ControllerState.writing
                 //write command 
                 started_write := false.B
-                
+                sendWrite()
                 //address bus now holds col address
                 io.sdram_control.address_bus := io.write_col_addresses(0)
             }
