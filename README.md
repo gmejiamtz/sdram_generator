@@ -81,7 +81,7 @@ added soon!
 
 Targetting Micron MT48LC1M16A1 SDRAM - 512K x 16 x 2 banks
 
-1. Build SDRAM controller state machine - In Progress - Initialization Tested as working for 1 case
+1. Build SDRAM controller state machine - In Progress - Init and Read(CAS of 1,2, and 3) States are verified, Write State in current testing
 
 2. Build SDRAM controller model - In Progress - Mostly complete, needs more rigorous testing, proper decay parameterization
 
