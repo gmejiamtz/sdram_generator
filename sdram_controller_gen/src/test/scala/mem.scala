@@ -102,8 +102,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.io.rwMask.poke(0xFF.U)
       dut.io.cmd.poke(MemCommand.read)
       dut.clock.step()
-      // FIXME this one is broken, as it technically should be given how this works...
-      // dut.io.rData.expect(0xA5.U)
+      dut.io.rData.expect(0xA5.U)
     }
   }
 
@@ -113,7 +112,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
     test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {dut =>
       dut.io.bankSel.poke(0.U)
       dut.io.rwMask.poke(((1 << width) - 1).U)
-      dut.io.addr.poke(529.U)
+      dut.io.addr.poke(81.U)
       dut.io.cmd.poke(MemCommand.mode)
       dut.io.commandEnable.poke(true.B)
       dut.clock.step()

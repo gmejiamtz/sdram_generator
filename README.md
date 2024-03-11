@@ -60,8 +60,10 @@ Supply your config.json file and provide the generator its path:
 
 ```bash
 cd sdram_controller_gen
-sbt run $PATH_TO_CONFIG_FILE
+sbt -Xmx2048M run $PATH_TO_CONFIG_FILE
   ```
+
+It may be useful to set `SBT_OPTS` to `-Xmx2048M` so that you do not have to type it multiple times.
 
 ## To Do List ##
 

@@ -10,7 +10,7 @@ object MemModes extends ChiselEnum {
   val burstPageBit = 2
   val burstTypeBit = 3
   def casLatency(i: chisel3.UInt) = i(5, 4)
-  val burstWriteBit = 9
+  val burstWriteBit = 6
 }
 
 class AdjustableShiftRegister[T <: chisel3.Data](slots: Int, t: T) extends Module {
@@ -52,11 +52,12 @@ class MemModelCASEntry(addrWidth: Int, bankWidth: Int) extends Bundle {
   val bankSel = UInt(bankWidth.W)
 }
 
-class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) extends Module {
+class MemModel(width: Int, banks: Int, rowWidth: Int = 9, colWidth: Int = 6) extends Module {
   val bankWidth = log2Ceil(banks)
   require(colWidth < rowWidth)
   require(banks > 1)
   require(colWidth > 3)
+  require(rowWidth > MemModes.burstWriteBit)
   val autoPrechargeBit = rowWidth - 1
   
   val io = IO(new Bundle{
@@ -75,11 +76,11 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
   })
   io.rData := DontCare
 
-  val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth), UInt(width.W))
+  val dram = SyncReadMem(1 << (bankWidth + rowWidth + colWidth + width), Bool())
   val bankRow = RegInit(VecInit.fill(banks)(0.U(rowWidth.W)))
   val bankRowValid = RegInit(VecInit.fill(banks)(false.B))
   // Ignore the two reserved bits so we don't have to cat bankWidth
-  val mode = RegInit(16.U(rowWidth.W))
+  val mode = RegInit(16.U((MemModes.burstWriteBit + 1).W))
 
   // Read CAS registers/connections
   val opData = Reg(new MemModelCASEntry(colWidth, bankWidth))
@@ -104,9 +105,15 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 11, colWidth: Int = 8) ex
     val realAddr = Cat(src.bankSel, bankRow(io.bankSel), src.addr)
     when (bankRowValid(src.bankSel)) {
       when (src.isWrite && io.writeEnable) {
-        dram(realAddr) := (io.wData & io.rwMask) | (dram(realAddr) & ~io.rwMask)
+        for (i <- 0 until width) {
+          when (io.rwMask(i)) {
+            dram(Cat(realAddr, i.U(width.W))) := io.wData(i)
+          }
+        }
       } .otherwise {
-        io.rData := dram(realAddr) & io.rwMask
+        // Apparently this line pushes Scala's poor memory manager over the edge!
+        // Reduced the sizes of things for now
+        io.rData := VecInit.tabulate(width){i => Mux(io.rwMask(i), dram(Cat(realAddr, i.U(width.W))), false.B)}.asUInt
       }
     }
 
