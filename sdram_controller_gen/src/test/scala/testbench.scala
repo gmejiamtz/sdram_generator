@@ -10,7 +10,49 @@ import os.truncate
 import java.util.ResourceBundle.Control
 import java.lang.ModuleLayer.Controller
 
-class InitializationTest extends AnyFreeSpec with ChiselScalatestTester {
+class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
+  def expectNOPs (dut: SDRAMController): Unit = {
+    dut.io.sdram_control.cs.expect(false.B)
+    dut.io.sdram_control.cas.expect(true.B)
+    dut.io.sdram_control.ras.expect(true.B)
+    dut.io.sdram_control.we.expect(true.B) 
+  }
+
+  def expectPrecharge (dut: SDRAMController): Unit = {
+    dut.io.sdram_control.cs.expect(false.B)
+    dut.io.sdram_control.ras.expect(false.B)
+    dut.io.sdram_control.cas.expect(true.B)
+    dut.io.sdram_control.we.expect(false.B) 
+  }
+
+  def expectRefresh (dut: SDRAMController): Unit = {
+    dut.io.sdram_control.cs.expect(false.B)
+    dut.io.sdram_control.ras.expect(false.B)
+    dut.io.sdram_control.cas.expect(false.B)
+    dut.io.sdram_control.we.expect(true.B)  
+  }
+
+  def expectModeLoad (dut: SDRAMController): Unit = {
+    dut.io.sdram_control.cs.expect(false.B)
+    dut.io.sdram_control.ras.expect(false.B)
+    dut.io.sdram_control.cas.expect(false.B)
+    dut.io.sdram_control.we.expect(false.B)
+  } 
+
+  def expectActive (dut: SDRAMController): Unit = {
+    dut.io.sdram_control.cs.expect(false.B)
+    dut.io.sdram_control.ras.expect(false.B)
+    dut.io.sdram_control.cas.expect(true.B)
+    dut.io.sdram_control.we.expect(true.B) 
+  }  
+
+  def expectRead (dut: SDRAMController): Unit = {
+    dut.io.sdram_control.cs.expect(false.B)
+    dut.io.sdram_control.ras.expect(true.B)
+    dut.io.sdram_control.cas.expect(false.B)
+    dut.io.sdram_control.we.expect(true.B)  
+  }
+
   "Tests for Initialization correctness" in {
     //wanted coded item 0000_0111_0000
     val burst_length = 0
@@ -26,31 +68,19 @@ class InitializationTest extends AnyFreeSpec with ChiselScalatestTester {
             dut.io.state_out.expect(ControllerState.initialization)
             if(cycle < init_cycle_time){
               //expect nops
-              dut.io.sdram_control.cs.expect(false.B)
-              dut.io.sdram_control.cas.expect(true.B)
-              dut.io.sdram_control.ras.expect(true.B)
-              dut.io.sdram_control.we.expect(true.B)
+              expectNOPs(dut)
             } else if(cycle == (init_cycle_time)){
               //expect precharge
-              dut.io.sdram_control.cs.expect(false.B)
-              dut.io.sdram_control.ras.expect(false.B)
-              dut.io.sdram_control.cas.expect(true.B)
-              dut.io.sdram_control.we.expect(false.B) 
+              expectPrecharge(dut)
             } else if(cycle == (init_cycle_time + 1) || cycle == (init_cycle_time + 2)){
               //expect auto refresh
-              dut.io.sdram_control.cs.expect(false.B)
-              dut.io.sdram_control.ras.expect(false.B)
-              dut.io.sdram_control.cas.expect(false.B)
-              dut.io.sdram_control.we.expect(true.B) 
+              expectRefresh(dut)
             }
             dut.clock.step()
         }
       //expect mode load
       dut.io.state_out.expect(ControllerState.initialization)
-      dut.io.sdram_control.cs.expect(false.B)
-      dut.io.sdram_control.ras.expect(false.B)
-      dut.io.sdram_control.cas.expect(false.B)
-      dut.io.sdram_control.we.expect(false.B)
+      expectModeLoad(dut)
       dut.io.sdram_control.address_bus.expect(48.U)
       dut.clock.step()
       //check if in idle
@@ -82,28 +112,19 @@ class InitializationTest extends AnyFreeSpec with ChiselScalatestTester {
         dut.io.read_row_addresses(0).poke(0.U)
         dut.io.read_start(0).poke(true.B)
         //send active command
-        dut.io.sdram_control.cs.expect(false.B)
-        dut.io.sdram_control.ras.expect(false.B)
-        dut.io.sdram_control.cas.expect(true.B)
-        dut.io.sdram_control.we.expect(true.B) 
+        expectActive(dut)
         dut.clock.step()
         dut.io.read_start(0).poke(false.B)
         //expect active state
         for(act_to_read <- 0 until active_to_rw_delay){
           dut.io.state_out.expect(ControllerState.active)
           //expect nops
-          dut.io.sdram_control.cs.expect(false.B)
-          dut.io.sdram_control.cas.expect(true.B)
-          dut.io.sdram_control.ras.expect(true.B)
-          dut.io.sdram_control.we.expect(true.B)
+          expectNOPs(dut)
           dut.clock.step()
         }
         //expect read command being sent and send in an address
         dut.io.read_col_addresses(0).poke(10.U)
-        dut.io.sdram_control.cs.expect(false.B)
-        dut.io.sdram_control.ras.expect(true.B)
-        dut.io.sdram_control.cas.expect(false.B)
-        dut.io.sdram_control.we.expect(true.B) 
+        expectRead(dut) 
         dut.io.sdram_control.address_bus.expect(10.U)
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
@@ -116,10 +137,7 @@ class InitializationTest extends AnyFreeSpec with ChiselScalatestTester {
         //no clock step means this value is high on a transition
         dut.io.read_data_valid(0).expect(true.B)
         //expect precharge to end read
-        dut.io.sdram_control.cs.expect(false.B)
-        dut.io.sdram_control.ras.expect(false.B)
-        dut.io.sdram_control.cas.expect(true.B)
-        dut.io.sdram_control.we.expect(false.B)  
+        expectPrecharge(dut)
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
         //read done
