@@ -136,7 +136,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
         //loop until cas latency is reached
-        for(time_in_read <- 0 until cas_latency){
+        for(time_in_read <- 0 until (cas_latency - 1)){
           dut.io.state_out.expect(ControllerState.reading) 
           dut.io.read_data_valid(0).expect(false.B)
           dut.clock.step()
@@ -248,7 +248,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
         //loop until cas latency is reached
-        for(time_in_read <- 0 until cas_latency){
+        for(time_in_read <- 0 until (cas_latency - 1)){
           dut.io.state_out.expect(ControllerState.reading) 
           dut.io.read_data_valid(0).expect(false.B)
           dut.clock.step()
@@ -304,7 +304,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
         //loop until cas latency is reached
-        for(time_in_read <- 0 until cas_latency){
+        for(time_in_read <- 0 until (cas_latency - 1)){
           dut.io.state_out.expect(ControllerState.reading) 
           dut.io.read_data_valid(0).expect(false.B)
           dut.clock.step()
