@@ -105,5 +105,5 @@ This project is under license from MIT. For more details, see the [LICENSE](LICE
 Made by <a href="https://github.com/gmejiamtz" target="_blank">Gary Mejia</a> and <a href="https://github.com/jlortiz0" target="_blank">Joaquin Ortiz</a> for <a href="https://github.com/agile-hw" target="_blank">CSE 228A - Agile Hardware Design</a> 
 
 &#xa0;
-https://github.com/agile-hw
+
 <a href="#top">Back to top</a>
