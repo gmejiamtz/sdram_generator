@@ -24,6 +24,12 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
         cache: 'sbt'
+    - name: Formatting
+      working-directory: sdram_controller_gen
+      run: sbt scalafmt
+    - name: Check Formatting
+      working-directory: sdram_controller_gen
+      run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
     - name: Run tests
       working-directory: sdram_controller_gen
       run: sbt test
