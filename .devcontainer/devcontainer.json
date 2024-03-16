@@ -9,7 +9,8 @@
         "scalameta.metals",
         "wavetrace.wavetrace",
         "itryapitsin.Sbt",
-        "shd101wyy.markdown-preview-enhanced"
+        "shd101wyy.markdown-preview-enhanced",
+        "GitHub.vscode-github-actions"
     ]
       }
     }
