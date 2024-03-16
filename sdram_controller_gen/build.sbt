@@ -20,3 +20,4 @@ lazy val root = (project in file("."))
     addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % chiselVersion cross CrossVersion.full),
   )
 libraryDependencies += "org.scalatestplus" %% "junit-4-13" % "3.2.15.0" % "test"
+enablePlugins(ScalafmtPlugin)
