@@ -26,7 +26,7 @@ jobs:
         cache: 'sbt'
     - name: Formatting
       working-directory: sdram_controller_gen
-      run: sbt scalafmt test:scalafmt scalaSbt
+      run: sbt scalafmt test:scalafmt scalafmtSbt
     - name: Check Formatting
       working-directory: sdram_controller_gen
       run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
