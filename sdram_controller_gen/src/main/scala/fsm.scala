@@ -246,7 +246,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       //address holds row right now
       val go_to_active =
         io.read_start.exists(identity) | io.write_start.exists(identity)
-      when(go_to_active) {
+      when (refresh_counter.value >= (refresh_every_cycles * 3 / 4).U) {
+        sendRefresh()
+      } .elsewhen(go_to_active) {
         state := ControllerState.active
         //active command - make this a function
         sendActive()
@@ -301,6 +303,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       state := ControllerState.reading
       cas_counter.inc()
       //nop command
+      sendNop()
       when(cas_counter.value === p.cas_latency) {
         //data is valid
         io.read_data_valid(0) := true.B
@@ -308,24 +311,17 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         //io.read_data := read_data_reg
         sendPrecharge()
         state := ControllerState.idle
-      } .elsewhen (refresh_counter.value >= (refresh_every_cycles / 2).U) {
-        sendRefresh()
-      } .otherwise {
-        sendNop()
       }
     }
     is(ControllerState.writing) {
       terminate_write.inc()
       //send nops
+      sendNop()
       when(terminate_write.value === p.t_rw_cycles.U) {
         //precharge command
         sendPrecharge()
         io.write_data_valid(0) := true.B
         state := ControllerState.idle
-      } .elsewhen (refresh_counter.value >= (refresh_every_cycles / 2).U) {
-        sendRefresh()
-      } .otherwise {
-        sendNop()
       }
     }
   }
