@@ -10,13 +10,13 @@ import scala.concurrent.duration._
 class ShiftRegTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test shift; fixed CAS" in {
     val slots = 2
-    test(new AdjustableShiftRegister(slots, Bool())) { dut =>
+    test(new AdjustableShiftRegister(slots, new MemModelCASEntry(1, 1))) { dut =>
       dut.io.shift.poke(slots.U)
       for (i <- 0 to slots) {
         dut.clock.step()
         dut.io.output.valid.expect(false.B)
       }
-      dut.io.input.bits.poke(true.B)
+      dut.io.input.bits.precharge.poke(true.B)
       dut.io.input.valid.poke(true.B)
       dut.clock.step()
       dut.io.input.valid.poke(false.B)
@@ -196,11 +196,13 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
         dut.io.writeEnable.poke(true.B)
         dut.clock.step()
         dut.io.wData.poke(0x55.U)
+        dut.io.cmd.poke(MemCommand.nop)
+        dut.clock.step()
         dut.io.addr.poke(33.U)
         dut.io.cmd.poke(MemCommand.mode)
+        dut.io.writeEnable.poke(false.B)
         dut.clock.step()
         // Read back in reverse order
-        dut.io.writeEnable.poke(false.B)
         dut.io.addr.poke(3.U)
         dut.io.cmd.poke(MemCommand.read)
         dut.clock.step()

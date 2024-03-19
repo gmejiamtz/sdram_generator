@@ -13,7 +13,7 @@ object MemModes extends ChiselEnum {
   val burstWriteBit = 6
 }
 
-class AdjustableShiftRegister[T <: chisel3.Data](slots: Int, t: T)
+class AdjustableShiftRegister[T <: MemModelCASEntry](slots: Int, t: T)
     extends Module {
 
   val io = IO(new Bundle {
@@ -23,7 +23,7 @@ class AdjustableShiftRegister[T <: chisel3.Data](slots: Int, t: T)
   })
   val regs = Reg(Vec(slots, t))
   val valid = RegInit(VecInit.fill(slots)(false.B))
-  when(io.shift === 0.U) {
+  when(io.shift === 0.U || (io.input.valid && io.input.bits.isWrite)) {
     io.output.bits := io.input.bits
     io.output.valid := io.input.valid
   }.otherwise {
@@ -174,31 +174,28 @@ class MemModel(width: Int, hz: Int, banks: Int, rowWidth: Int = 9, colWidth: Int
     } .otherwise {
       refreshCounter := 0.U
     }
-  }.elsewhen(refreshCounter < (refreshMax - 1).U) {
+  } .elsewhen(refreshCounter < (refreshMax - 1).U) {
     refreshCounter := refreshCounter + 1.U
   }
 
   when(!io.commandEnable || refreshCounter >= (refreshMax - 1).U) {
     // do nothing
-  }.elsewhen(io.cmd === MemCommand.active) {
-      // Only activate a bank row if it is valid
-      when(!bankRowValid(io.bankSel)) {
-        bankRow(io.bankSel) := io.addr
-        bankRowValid(io.bankSel) := true.B
-      }
+  } .elsewhen(io.cmd === MemCommand.active) {
+    // Only activate a bank row if it is valid
+    when(!bankRowValid(io.bankSel)) {
+      bankRow(io.bankSel) := io.addr
+      bankRowValid(io.bankSel) := true.B
     }
-    .elsewhen(io.cmd === MemCommand.mode) {
-      mode := io.addr
+  } .elsewhen(io.cmd === MemCommand.mode) {
+    mode := io.addr
+  } .elsewhen(io.cmd === MemCommand.precharge) {
+    when(io.addr(autoPrechargeBit)) {
+      // Precharge all banks when MSB of io.addr high
+      bankRowValid := VecInit.fill(banks)(false.B)
+    } .otherwise {
+      bankRowValid(io.bankSel) := false.B
     }
-    .elsewhen(io.cmd === MemCommand.precharge) {
-      when(io.addr(autoPrechargeBit)) {
-        // Precharge all banks when MSB of io.addr high
-        bankRowValid := VecInit.fill(banks)(false.B)
-      }.otherwise {
-        bankRowValid(io.bankSel) := false.B
-      }
-    }
-    .elsewhen(io.cmd === MemCommand.terminate) {
-      opRunning := false.B
-    }
+  } .elsewhen(io.cmd === MemCommand.terminate) {
+    opRunning := false.B
+  }
 }
