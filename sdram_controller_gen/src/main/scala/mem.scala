@@ -54,7 +54,7 @@ class MemModelCASEntry(addrWidth: Int, bankWidth: Int) extends Bundle {
   val bankSel = UInt(bankWidth.W)
 }
 
-class MemModel(width: Int, banks: Int, rowWidth: Int = 9, colWidth: Int = 6)
+class MemModel(width: Int, hz: Int, banks: Int, rowWidth: Int = 9, colWidth: Int = 6)
     extends Module {
   val bankWidth = log2Ceil(banks)
   require(colWidth < rowWidth)
@@ -163,26 +163,22 @@ class MemModel(width: Int, banks: Int, rowWidth: Int = 9, colWidth: Int = 6)
     }
   }
 
-  // TODO: Parameterize number of cycles needed to refresh
-  // Also make a separate counter that resets when refresh is low
-  // so we have to hold refresh for a certain number of cycles for it to be effective
-  // maybe? the first thing is probably sufficient honestly
-  val refreshCounter = RegInit(0.U(log2Ceil(2048).W))
+  // Need 2048 cycles of refresh every 64 ms
+  val refreshMax = (hz / 1000) * 64
+  val refreshPerCycle = refreshMax / 2048
+  val refreshCounter = RegInit(0.U(log2Ceil(refreshMax).W))
   io.debug.refresh := refreshCounter
   when(io.cmd === MemCommand.refresh && io.commandEnable) {
-    when(refreshCounter > 0.U) {
-      refreshCounter := refreshCounter - 1.U
+    when(refreshCounter > refreshPerCycle.U) {
+      refreshCounter := refreshCounter - refreshPerCycle.U
+    } .otherwise {
+      refreshCounter := 0.U
     }
-  }.elsewhen(refreshCounter >= 2048.U) {
-      // While it would be nice to actually do something here
-      // generating any kind of hardware that operates over any decently large section of memory
-      // would kill sbt. So we'll likely add something to start killing commands at this point
-    }
-    .otherwise {
-      refreshCounter := refreshCounter + 1.U
-    }
+  }.elsewhen(refreshCounter < (refreshMax - 1).U) {
+    refreshCounter := refreshCounter + 1.U
+  }
 
-  when(!io.commandEnable) {
+  when(!io.commandEnable || refreshCounter >= (refreshMax - 1).U) {
     // do nothing
   }.elsewhen(io.cmd === MemCommand.active) {
       // Only activate a bank row if it is valid

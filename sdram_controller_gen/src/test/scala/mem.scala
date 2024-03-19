@@ -31,7 +31,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test read and write; single cell, full mask" in {
     val width = 8
     val banks = 2
-    test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new MemModel(width, 2048, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.io.addr.poke(16.U)
         dut.io.cmd.poke(MemCommand.mode)
@@ -70,7 +70,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test read and write; single cell, lower nibble mask" in {
     val width = 8
     val banks = 2
-    test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new MemModel(width, 2048, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.io.addr.poke(16.U)
         dut.io.cmd.poke(MemCommand.mode)
@@ -110,7 +110,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test burst read, individual write" in {
     val width = 8
     val banks = 2
-    test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new MemModel(width, 2048, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.io.bankSel.poke(0.U)
         dut.io.rwMask.poke(((1 << width) - 1).U)
@@ -143,7 +143,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test burst read, burst write" in {
     val width = 8
     val banks = 2
-    test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new MemModel(width, 2048, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.io.bankSel.poke(0.U)
         dut.io.rwMask.poke(((1 << width) - 1).U)
@@ -178,7 +178,7 @@ class MemoryModelTest extends AnyFreeSpec with ChiselScalatestTester {
   "Test CAS latency" in {
     val width = 8
     val banks = 2
-    test(new MemModel(width, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new MemModel(width, 2048, banks)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.io.bankSel.poke(0.U)
         dut.io.rwMask.poke(((1 << width) - 1).U)

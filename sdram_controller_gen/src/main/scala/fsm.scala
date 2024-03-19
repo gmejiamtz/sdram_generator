@@ -66,7 +66,7 @@ case class SDRAMControllerParams(
   val period = period_duration.toNanos.toInt
   //hardcoded by the datasheet - converted to ns
   val t_ref = 64
-  val time_for_1_refresh = Duration(t_ref.toFloat / 2048, SECONDS).toNanos
+  val time_for_1_refresh = Duration(t_ref.toFloat / 2048, MILLISECONDS).toNanos
   //10 is hardcoded by the lab doc - assume no auto precharge
   val t_rw_cycles = (10 / period.toFloat).ceil.toInt
 }
@@ -139,6 +139,8 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
+  val refresh_every_cycles = (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt
+  val refresh_counter = Counter(refresh_every_cycles)
 
   //functions to send commands
   def sendNop(): Unit = {
@@ -160,6 +162,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
     io.sdram_control.ras := false.B
     io.sdram_control.cas := false.B
     io.sdram_control.we := true.B
+    refresh_counter.reset()
   }
 
   def sendModeProg(): Unit = {
@@ -201,6 +204,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   io.state_out := state
   io.read_data_valid(0) := false.B
   io.write_data_valid(0) := false.B
+  refresh_counter.inc()
   switch(state) {
     is(ControllerState.initialization) {
       //later each sdram will require its own init module
@@ -242,8 +246,6 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       //address holds row right now
       val go_to_active =
         io.read_start.exists(identity) | io.write_start.exists(identity)
-      //nop command
-      sendNop()
       when(go_to_active) {
         state := ControllerState.active
         //active command - make this a function
@@ -256,6 +258,10 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
           started_write := true.B
           io.sdram_control.address_bus := io.write_row_addresses(0)
         }
+      } .elsewhen (refresh_counter.value >= (refresh_every_cycles / 2).U) {
+        sendRefresh()
+      } .otherwise {
+        sendNop()
       }
     }
     is(ControllerState.active) {
@@ -264,8 +270,6 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       val we_are_reading = stated_read
       val we_are_writing = started_write
       active_to_rw_counter.inc()
-      //nop command
-      sendNop()
       //address bus needs to hold row address
       io.sdram_control.address_bus := io.read_row_addresses(0)
       when(
@@ -287,13 +291,16 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         sendWrite()
         //address bus now holds col address
         io.sdram_control.address_bus := io.write_col_addresses(0)
+      } .elsewhen (refresh_counter.value >= (refresh_every_cycles / 2).U) {
+        sendRefresh()
+      } .otherwise {
+        sendNop()
       }
     }
     is(ControllerState.reading) {
       state := ControllerState.reading
       cas_counter.inc()
       //nop command
-      sendNop()
       when(cas_counter.value === p.cas_latency) {
         //data is valid
         io.read_data_valid(0) := true.B
@@ -301,17 +308,24 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         //io.read_data := read_data_reg
         sendPrecharge()
         state := ControllerState.idle
+      } .elsewhen (refresh_counter.value >= (refresh_every_cycles / 2).U) {
+        sendRefresh()
+      } .otherwise {
+        sendNop()
       }
     }
     is(ControllerState.writing) {
       terminate_write.inc()
       //send nops
-      sendNop()
       when(terminate_write.value === p.t_rw_cycles.U) {
         //precharge command
         sendPrecharge()
         io.write_data_valid(0) := true.B
         state := ControllerState.idle
+      } .elsewhen (refresh_counter.value >= (refresh_every_cycles / 2).U) {
+        sendRefresh()
+      } .otherwise {
+        sendNop()
       }
     }
   }
