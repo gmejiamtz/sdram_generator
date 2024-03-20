@@ -66,7 +66,7 @@ case class SDRAMControllerParams(
   val period = period_duration.toNanos.toInt
   //hardcoded by the datasheet - converted to ns
   val t_ref = 64
-  val time_for_1_refresh = Duration(t_ref.toFloat / 2048, SECONDS).toNanos
+  val time_for_1_refresh = Duration(t_ref.toFloat / 2048, MILLISECONDS).toNanos
   //10 is hardcoded by the lab doc - assume no auto precharge
   val t_rw_cycles = (10 / period.toFloat).ceil.toInt
 }
@@ -139,6 +139,15 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
+  val refresh_every_cycles = (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
+
+  // I tried to get this to work using just wrap but it asserted refresh every cycle
+  // idk counters have just always been a bit bugged
+  val refresh_counter = Counter(refresh_every_cycles)
+  val refresh_outstanding = RegInit(false.B)
+  when (refresh_counter.inc()) {
+    refresh_outstanding := true.B
+  }
 
   //functions to send commands
   def sendNop(): Unit = {
@@ -160,6 +169,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
     io.sdram_control.ras := false.B
     io.sdram_control.cas := false.B
     io.sdram_control.we := true.B
+    refresh_outstanding := false.B
   }
 
   def sendModeProg(): Unit = {
@@ -244,7 +254,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         io.read_start.exists(identity) | io.write_start.exists(identity)
       //nop command
       sendNop()
-      when(go_to_active) {
+      when (refresh_outstanding) {
+        sendRefresh()
+      } .elsewhen(go_to_active) {
         state := ControllerState.active
         //active command - make this a function
         sendActive()
@@ -287,6 +299,8 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         sendWrite()
         //address bus now holds col address
         io.sdram_control.address_bus := io.write_col_addresses(0)
+      } .elsewhen (refresh_outstanding) {
+        sendRefresh()
       }
     }
     is(ControllerState.reading) {
