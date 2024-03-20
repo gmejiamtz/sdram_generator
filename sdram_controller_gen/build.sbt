@@ -23,4 +23,5 @@ lazy val root = (project in file("."))
     )
   )
 libraryDependencies += "org.scalatestplus" %% "junit-4-13" % "3.2.15.0" % "test"
+libraryDependencies += "com.typesafe.play" %% "play-json" % "2.10.0"
 enablePlugins(ScalafmtPlugin)
