@@ -81,7 +81,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
   //address to index row and col - shared in sdram
   val address_bus = Output(UInt(p.address_width.W))
   //when reading its output when writing it is input
-  val data_out_and_in = Analog((p.data_width.W))
+  //val data_out_and_in = Analog((p.data_width.W))
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
@@ -98,7 +98,7 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
     Vec(p.num_read_channels, UInt(p.address_width.W))
   )
   //data movement too hard due to bidirectional data TBA - focus on requests
-  val read_data = Output(Vec(p.num_read_channels, UInt(p.data_width.W)))
+  //val read_data = Output(Vec(p.num_read_channels, UInt(p.data_width.W)))
   val read_data_valid = Output(Vec(p.num_read_channels, Bool()))
   //read start
   val read_start = Input(Vec(p.num_read_channels, Bool()))
@@ -111,7 +111,7 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
   val write_col_addresses = Input(
     Vec(p.num_write_channels, UInt(p.address_width.W))
   )
-  val write_data = Input(Vec(p.num_write_channels, UInt(p.data_width.W)))
+  //val write_data = Input(Vec(p.num_write_channels, UInt(p.data_width.W)))
   val write_data_valid = Output(Vec(p.num_write_channels, Bool()))
   val write_start = Input(Vec(p.num_write_channels, Bool()))
   //wired to the actual sdram
@@ -232,11 +232,11 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   io.sdram_control.cas := DontCare
   io.sdram_control.we := DontCare
   //handle analog conntion
-  val handle_analog = Module(new AnalogConnection(p))
-  io.sdram_control.data_out_and_in <> handle_analog.io.data_inout 
-  handle_analog.io.write_data := io.write_data(0)
-  handle_analog.io.oen := oen_reg
-  io.read_data(0) := handle_analog.io.read_data
+  //val handle_analog = Module(new AnalogConnection(p))
+  //io.sdram_control.data_out_and_in <> handle_analog.io.data_inout 
+  //handle_analog.io.write_data := io.write_data(0)
+  //handle_analog.io.oen := oen_reg
+  //io.read_data(0) := handle_analog.io.read_data
   //other outputs
   io.state_out := state
   io.read_data_valid(0) := false.B
