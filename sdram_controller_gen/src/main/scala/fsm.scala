@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import scala.concurrent.duration._
 import chisel3.experimental.Analog
+import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
 
 object ControllerState extends ChiselEnum {
 
@@ -80,7 +81,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
   //address to index row and col - shared in sdram
   val address_bus = Output(UInt(p.address_width.W))
   //when reading its output when writing it is input
-  //val data_out_and_in = Analog((p.data_width.W))
+  val data_out_and_in = Analog((p.data_width.W))
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
@@ -97,8 +98,8 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
     Vec(p.num_read_channels, UInt(p.address_width.W))
   )
   //data movement too hard due to bidirectional data TBA - focus on requests
-  //val read_data = Vec(p.num_read_channels, Analog(p.data_width.W))
-  val read_data_valid = Vec(p.num_read_channels, Bool())
+  val read_data = Output(Vec(p.num_read_channels, UInt(p.data_width.W)))
+  val read_data_valid = Output(Vec(p.num_read_channels, Bool()))
   //read start
   val read_start = Input(Vec(p.num_read_channels, Bool()))
 
@@ -110,13 +111,35 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
   val write_col_addresses = Input(
     Vec(p.num_write_channels, UInt(p.address_width.W))
   )
-  //val write_data = Vec(p.num_read_channels, Analog(p.data_width.W))
-  val write_data_valid = Vec(p.num_write_channels, Bool())
+  val write_data = Input(Vec(p.num_write_channels, UInt(p.data_width.W)))
+  val write_data_valid = Output(Vec(p.num_write_channels, Bool()))
   val write_start = Input(Vec(p.num_write_channels, Bool()))
   //wired to the actual sdram
   val sdram_control = new ToSDRAM(p)
   //debug purposes
   val state_out = Output(ControllerState())
+}
+
+class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackBoxInline {
+    val io = IO(new Bundle {
+    val data_inout = Analog(p.data_width.W)
+    val read_data = Output(UInt(p.data_width.W))
+    val write_data = Input(UInt(p.data_width.W))
+    val oen = Input(Bool())
+  })
+
+  setInline("AnalogConnection.v",
+    s"""
+    |module AnalogConnection(
+    |     inout [${p.data_width - 1}:0] data_inout,
+    |     output [${p.data_width - 1}:0] read_data,
+    |     input [${p.data_width - 1}:0] write_data,
+    |     input oen);
+    |
+    |   assign data_inout = (oen == 'b0) ? write_data : 'bzzzzzzzzzzzzzzzz;
+    |   assign read_data = data_inout;
+    |endmodule
+    """.stripMargin)
 }
 
 class SDRAMController(p: SDRAMControllerParams) extends Module {
@@ -127,6 +150,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val read_data_reg = Reg(UInt(p.data_width.W))
   val stated_read = RegInit(false.B)
   val started_write = RegInit(false.B)
+  val oen_reg = RegInit(false.B)
   //counter for read data being valid
   val cas_counter = Counter(p.wanted_cas_latency + 1)
   //counter to terminate write
@@ -207,6 +231,12 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   io.sdram_control.ras := DontCare
   io.sdram_control.cas := DontCare
   io.sdram_control.we := DontCare
+  //handle analog conntion
+  val handle_analog = Module(new AnalogConnection(p))
+  io.sdram_control.data_out_and_in <> handle_analog.io.data_inout 
+  handle_analog.io.write_data := io.write_data(0)
+  handle_analog.io.oen := oen_reg
+  io.read_data(0) := handle_analog.io.read_data
   //other outputs
   io.state_out := state
   io.read_data_valid(0) := false.B
@@ -286,6 +316,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         state := ControllerState.reading
         //read command
         sendRead()
+        oen_reg := true.B
         stated_read := false.B
         //address bus now holds col address
         io.sdram_control.address_bus := io.read_col_addresses(0)
@@ -296,6 +327,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         state := ControllerState.writing
         //write command
         started_write := false.B
+        oen_reg := false.B
         sendWrite()
         //address bus now holds col address
         io.sdram_control.address_bus := io.write_col_addresses(0)
