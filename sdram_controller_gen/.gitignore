@@ -31,6 +31,7 @@ metals.sbt
 .idea
 .idea_modules
 /.worksheet/
-.fir
-.v
-.json
+# Generated Verilog
+*.fir
+*.v
+*.json

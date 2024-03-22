@@ -9,7 +9,7 @@ object Hello {
       println("Usage: sbt 'run <config_file_path>'")
       sys.exit(1)
      }
-     val configFilePath = args(0)
+    val configFilePath = args(0)
     println(s"Config file path provided: $configFilePath")
     //Parse the config json file
     val jsonString = scala.io.Source.fromFile(configFilePath).mkString
@@ -47,5 +47,6 @@ object Hello {
     val chiselStage = new ChiselStage
     //called SDRAMController.v
     chiselStage.emitVerilog(new SDRAMController(params), args)
+    println("Verilog Generated at SDRAMController.v")
   }
 }

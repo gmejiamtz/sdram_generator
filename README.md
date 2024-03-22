@@ -42,7 +42,9 @@
 
 ## About ##
 
-In this project, we provide a Chisel generator for SDRAM controllers.
+In this project, we provide a Chisel generator for SDRAM controllers. Users will supply a .json representation
+of their targetted SDRAM's datasheet to provide timing values and other parameters such as address bus size and 
+frequency. Templates are provided in the `templates` directory and provides more information on .json file formatting. 
 
 ## Usage ##
 
@@ -56,14 +58,13 @@ Clone the repo:
 
 ### Step 2
 
-Supply your config.json file and provide the generator its path:
+Supply your config.json file and provide the generator its path to generate SDRAMController.v:
 
 ```bash
 cd sdram_controller_gen
-sbt -Xmx2048M run $PATH_TO_CONFIG_FILE
+sbt "run $PATH_TO_CONFIG_FILE"
   ```
 
-It may be useful to set `SBT_OPTS` to `-Xmx2048M` so that you do not have to type it multiple times.
 
 ### Step 3 
 
@@ -71,7 +72,7 @@ To test simply do the following commands:
 
 ```bash
 cd sdram_controller_gen
-sbt -Xmx2048M test
+sbt test
 ```
 
 Tests at the moment only test for initialization of an MT48LC1M16A1 Micron SDRAM. More will be
@@ -85,9 +86,9 @@ Targetting Micron MT48LC1M16A1 SDRAM - 512K x 16 x 2 banks
 
 2. Build SDRAM controller model - In Progress - Mostly complete, needs more rigorous testing, proper decay parameterization
 
-3. Generate tests for MT48LC1M16A1 controller - In Progress 
+3. Generate tests for MT48LC1M16A1 controller - In Progress - Analog Connection posing issues with ChiselTest thus need to write Verilog Testbenches by hand and use Verilator and Icarus-Verilog for simulations
 
-4. Build Main program to generate Verilog - In Progress
+4. Build Main program to generate Verilog - Parsing is done, need to rewrite Parameter case class to take in Map of String to Int
 
 ## :hammer: Tools ##
 
