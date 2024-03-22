@@ -33,17 +33,7 @@ object Hello {
     val cas_latency = 3
     val opcode = 0
     val write_burst = 0
-    val params = new SDRAMControllerParams(
-      16,
-      12,
-      1,
-      1,
-      burst_length,
-      burst_type,
-      cas_latency,
-      opcode,
-      write_burst
-    )
+    val params = new SDRAMControllerParams(resultMap)
     val chiselStage = new ChiselStage
     //called SDRAMController.v
     chiselStage.emitVerilog(new SDRAMController(params), args)
