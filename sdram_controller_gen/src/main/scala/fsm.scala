@@ -6,7 +6,7 @@ import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
 
 class SDRAMController(p: SDRAMControllerParams) extends Module {
   val io = IO(new SDRAMControllerIO(p))
-
+  val sdram_commands = new SDRAMCommands(p, io.sdram_control)
   //initialization is a to be added feature for now just wait a cycles then go to idle
   val state = RegInit(ControllerState.initialization)
   //hold read data
@@ -36,13 +36,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
     refresh_outstanding := true.B
   }
 
-  //Default SDRAM signals
-  io.sdram_control.address_bus := DontCare
-  //io.sdram_control.data_out_and_in := DontCare
-  io.sdram_control.cs := DontCare
-  io.sdram_control.ras := DontCare
-  io.sdram_control.cas := DontCare
-  io.sdram_control.we := DontCare
+ 
   //handle analog conntion
   val handle_analog = Module(new AnalogConnection(p))
   //io.sdram_control.data_out_and_in <> handle_analog.io.data_inout 

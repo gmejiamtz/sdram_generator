@@ -69,27 +69,19 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
   val ras = Output(Bool())
   val cas = Output(Bool())
   val we = Output(Bool())
+  val dqm = Output(UInt)
   //address to index row and col - shared in sdram
   val address_bus = Output(UInt(p.address_width.W))
   //when reading its output when writing it is input
-  //val data_out_and_in = Analog((p.data_width.W))
+  val dq = Analog((p.data_width.W))
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
-  //require at least one read and one write channel
-  require(p.read_channels > 0)
-  require(p.write_channels > 0)
-
-  //read channels - for now vec is a vec of 1
   val read_row_addresses = Input(UInt(p.address_width.W))
-
   val read_col_addresses = Input(UInt(p.address_width.W))
-  //data movement too hard due to bidirectional data TBA - focus on requests
   val read_data = Output(UInt(p.data_width.W))
   val read_data_valid = Output(Bool())
-  //read start
-  val read_start = Input(Bool()))
-
+  val read_start = Input(Bool())
   //write channels
   val write_row_addresses = Input(UInt(p.address_width.W))
   val write_col_addresses = Input(UInt(p.address_width.W))
@@ -104,53 +96,94 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
 
 class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
   var control = controls
+
+  def initialize_controls(): Unit = {
+    //Default SDRAM signals
+    control.address_bus := DontCare
+    //control.data_out_and_in := DontCare
+    control.cs := DontCare
+    control.ras := DontCare
+    control.cas := DontCare
+    control.we := DontCare 
+  }
+
   //functions to send commands
-  def sendNop(): Unit = {
+  def NOP(): Unit = {
     control.cs := false.B
     control.ras := true.B
     control.cas := true.B
     control.we := true.B
+    control.address_bus := DontCare
   }
 
-  def sendPrecharge(): Unit = {
+  def Precharge(): Unit = {
     control.cs := false.B
     control.ras := false.B
     control.cas := true.B
     control.we := false.B
+    control.address_bus := DontCare
   }
 
-  def sendRefresh(): Unit = {
+  def Refresh(): Unit = {
     control.cs := false.B
     control.ras := false.B
     control.cas := false.B
     control.we := true.B
+    control.address_bus := DontCare
   }
 
-  def sendModeProg(): Unit = {
-    control.cs := false.B
-    control.ras := false.B
-    control.cas := false.B
-    control.we := false.B
-  }
 
-  def sendActive(): Unit = {
+  def Active(row_and_bank: UInt): Unit = {
     control.cs := false.B
     control.ras := false.B
     control.cas := true.B
     control.we := true.B
+    control.address_bus := row_and_bank
   }
 
-  def sendRead(): Unit = {
+  def Program_Mode_Reg(wrB_wrM_opcode_cas_bT_bL: UInt): Unit = {
+    control.cs := false.B
+    control.ras := false.B
+    control.cas := false.B
+    control.we := false.B
+    control.address_bus := wrB_wrM_opcode_cas_bT_bL
+  }
+
+  def Read(column: UInt): Unit = {
     control.cs := false.B
     control.ras := true.B
     control.cas := false.B
     control.we := true.B
+    control.address_bus := column
   }
 
-  def sendWrite(): Unit = {
+  def Write(column: UInt, data_in: UInt): Unit = {
     control.cs := false.B
     control.ras := true.B
     control.cas := false.B
     control.we := false.B
+    control.address_bus := column
   }
+}
+
+class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackBoxInline {
+    val io = IO(new Bundle {
+    val data_inout = Analog(p.data_width.W)
+    val read_data = Output(UInt(p.data_width.W))
+    val write_data = Input(UInt(p.data_width.W))
+    val oen = Input(Bool())
+  })
+
+  setInline("AnalogConnection.v",
+    s"""
+    |module AnalogConnection(
+    |     inout [${p.data_width - 1}:0] data_inout,
+    |     output [${p.data_width - 1}:0] read_data,
+    |     input [${p.data_width - 1}:0] write_data,
+    |     input oen);
+    |
+    |   assign data_inout = (oen == 'b0) ? write_data : 'bzzzzzzzzzzzzzzzz;
+    |   assign read_data = data_inout;
+    |endmodule
+    """.stripMargin)
 }
