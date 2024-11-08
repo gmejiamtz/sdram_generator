@@ -6,6 +6,7 @@
         "num_of_write_channels": 1,
         "data_width": 16,
         "address_width": 12,
+        "dqm_width": 2,
         "frequency_scale": 1000000,
         "frequency": 125,
         "burst_length": 0,

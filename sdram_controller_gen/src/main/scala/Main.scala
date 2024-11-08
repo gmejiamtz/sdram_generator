@@ -1,5 +1,6 @@
 import play.api.libs.json._
 import chisel3.stage.ChiselStage
+import sdram_general._
 object Hello {
   def main(args: Array[String]): Unit = {
     println(

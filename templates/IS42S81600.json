@@ -2,8 +2,8 @@
     "company": "ISSI",
     "name": "IS42S81600",
     "config": {
-        "data_width": 16,
-        "address_width": 12,
+        "data_width": 8,
+        "address_width": 14,
         "dqm_width": 1,
         "frequency_scale": 1000000,
         "frequency": 125,

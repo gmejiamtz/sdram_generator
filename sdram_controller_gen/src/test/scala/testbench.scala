@@ -10,6 +10,7 @@ import os.truncate
 import java.util.ResourceBundle.Control
 import java.lang.ModuleLayer.Controller
 import play.api.libs.json._
+import sdram_general._
 
 class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
 
@@ -129,12 +130,12 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
-        dut.io.read_row_addresses(0).poke(0.U)
+        dut.io.read_row_address.poke(0.U)
         dut.io.read_start(0).poke(true.B)
         //send active command
         expectActive(dut)
         dut.clock.step()
-        dut.io.read_start(0).poke(false.B)
+        dut.io.read_start.poke(false.B)
         //expect active state
         for (act_to_read <- 0 until active_to_rw_delay) {
           dut.io.state_out.expect(ControllerState.active)
@@ -143,7 +144,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
           dut.clock.step()
         }
         //expect read command being sent and send in an address
-        dut.io.read_col_addresses(0).poke(10.U)
+        dut.io.read_col_address.poke(10.U)
         expectRead(dut)
         dut.io.sdram_control.address_bus.expect(10.U)
         dut.clock.step()
@@ -151,11 +152,11 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         //loop until cas latency is reached
         for (time_in_read <- 0 until (datasheet("cas_latency") - 1)) {
           dut.io.state_out.expect(ControllerState.reading)
-          dut.io.read_data_valid(0).expect(false.B)
+          dut.io.read_data_valid.expect(false.B)
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
-        dut.io.read_data_valid(0).expect(true.B)
+        dut.io.read_data_valid.expect(true.B)
         //expect precharge to end read
         expectPrecharge(dut)
         dut.clock.step()
@@ -184,12 +185,12 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
-        dut.io.write_row_addresses(45.U)
+        dut.io.write_row_address(45.U)
         dut.io.write_start(0).poke(true.B)
         //send active command
         expectActive(dut)
         dut.clock.step()
-        dut.io.write_start(0).poke(false.B)
+        dut.io.write_start.poke(false.B)
         //expect active state
         for (act_to_read <- 0 until active_to_rw_delay) {
           dut.io.state_out.expect(ControllerState.active)
@@ -198,7 +199,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
           dut.clock.step()
         }
         //expect write command being sent and send in an address
-        dut.io.write_col_addresses(0).poke(28.U)
+        dut.io.write_col_address.poke(28.U)
         expectWrite(dut)
         dut.io.sdram_control.address_bus.expect(28.U)
         dut.clock.step()
@@ -206,11 +207,11 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         //loop until cas latency is reached
         for (time_in_read <- 0 until params.t_rw_cycles) {
           dut.io.state_out.expect(ControllerState.writing)
-          dut.io.read_data_valid(0).expect(false.B)
+          dut.io.read_data_valid.expect(false.B)
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
-        dut.io.write_data_valid(0).expect(true.B)
+        dut.io.write_data_valid.expect(true.B)
         //expect precharge to end read
         expectPrecharge(dut)
         dut.clock.step()
@@ -239,12 +240,12 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
-        dut.io.read_row_addresses(0).poke(0.U)
-        dut.io.read_start(0).poke(true.B)
+        dut.io.read_row_address.poke(0.U)
+        dut.io.read_start.poke(true.B)
         //send active command
         expectActive(dut)
         dut.clock.step()
-        dut.io.read_start(0).poke(false.B)
+        dut.io.read_start.poke(false.B)
         //expect active state
         for (act_to_read <- 0 until active_to_rw_delay) {
           dut.io.state_out.expect(ControllerState.active)
@@ -253,7 +254,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
           dut.clock.step()
         }
         //expect read command being sent and send in an address
-        dut.io.read_col_addresses(0).poke(10.U)
+        dut.io.read_col_address.poke(10.U)
         expectRead(dut)
         dut.io.sdram_control.address_bus.expect(10.U)
         dut.clock.step()
@@ -261,11 +262,11 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         //loop until cas latency is reached
         for (time_in_read <- 0 until (datasheet("cas_latency") - 1)) {
           dut.io.state_out.expect(ControllerState.reading)
-          dut.io.read_data_valid(0).expect(false.B)
+          dut.io.read_data_valid.expect(false.B)
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
-        dut.io.read_data_valid(0).expect(true.B)
+        dut.io.read_data_valid.expect(true.B)
         //expect precharge to end read
         expectPrecharge(dut)
         dut.clock.step()
@@ -294,12 +295,12 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
-        dut.io.read_row_addresses(0).poke(0.U)
-        dut.io.read_start(0).poke(true.B)
+        dut.io.read_row_address.poke(0.U)
+        dut.io.read_start.poke(true.B)
         //send active command
         expectActive(dut)
         dut.clock.step()
-        dut.io.read_start(0).poke(false.B)
+        dut.io.read_start.poke(false.B)
         //expect active state
         for (act_to_read <- 0 until active_to_rw_delay) {
           dut.io.state_out.expect(ControllerState.active)
@@ -308,7 +309,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
           dut.clock.step()
         }
         //expect read command being sent and send in an address
-        dut.io.read_col_addresses(0).poke(10.U)
+        dut.io.read_col_address.poke(10.U)
         expectRead(dut)
         dut.io.sdram_control.address_bus.expect(10.U)
         dut.clock.step()
@@ -316,11 +317,11 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         //loop until cas latency is reached
         for (time_in_read <- 0 until (datasheet("cas_latency") - 1)) {
           dut.io.state_out.expect(ControllerState.reading)
-          dut.io.read_data_valid(0).expect(false.B)
+          dut.io.read_data_valid.expect(false.B)
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
-        dut.io.read_data_valid(0).expect(true.B)
+        dut.io.read_data_valid.expect(true.B)
         //expect precharge to end read
         expectPrecharge(dut)
         dut.clock.step()

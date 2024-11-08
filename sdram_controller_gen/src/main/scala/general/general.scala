@@ -1,3 +1,4 @@
+package sdram_general
 import chisel3._
 import chisel3.util._
 import scala.concurrent.duration._
@@ -13,14 +14,6 @@ case class SDRAMControllerParams(
   datasheet: Map[String, Int]
 ) {
   //anything set to a concrete number is likely to be replaced with a parameter
-  require(
-    datasheet("num_of_read_channels") > 0,
-    "Number of read channels is not greater than 0"
-  )
-  require(
-    datasheet("num_of_write_channels")  > 0,
-    "Number of write channels is not greater than 0"
-  )
   require(
     datasheet("burst_length") >= 0 && datasheet("burst_length") <= 3,
     "Burst length must be between 0 and 3"
@@ -38,11 +31,11 @@ case class SDRAMControllerParams(
     datasheet("write_burst") == 0 || datasheet("write_burst") == 1,
     "Write Burst must be 0 for Programmed Length or 1 for single location access"
   )
+  require(datasheet("dqm_width") > 0, "DQM must be given as 1 or higher")
 
-  val read_channels = datasheet("num_of_read_channels")
-  val write_channels = datasheet("num_of_write_channels")
   val data_width = datasheet("data_width")
   val address_width = datasheet("address_width")
+  val dqm_width = datasheet("dqm_width")
   //set by user
   val burst_length = datasheet("burst_length")
   val burst_type = datasheet("burst_length")
@@ -69,7 +62,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
   val ras = Output(Bool())
   val cas = Output(Bool())
   val we = Output(Bool())
-  val dqm = Output(UInt)
+  val dqm = Output(UInt(p.dqm_width.W))
   //address to index row and col - shared in sdram
   val address_bus = Output(UInt(p.address_width.W))
   //when reading its output when writing it is input
@@ -77,14 +70,14 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
-  val read_row_addresses = Input(UInt(p.address_width.W))
-  val read_col_addresses = Input(UInt(p.address_width.W))
+  val read_row_address = Input(UInt(p.address_width.W))
+  val read_col_address = Input(UInt(p.address_width.W))
   val read_data = Output(UInt(p.data_width.W))
   val read_data_valid = Output(Bool())
   val read_start = Input(Bool())
   //write channels
-  val write_row_addresses = Input(UInt(p.address_width.W))
-  val write_col_addresses = Input(UInt(p.address_width.W))
+  val write_row_address = Input(UInt(p.address_width.W))
+  val write_col_address = Input(UInt(p.address_width.W))
   val write_data = Input(UInt(p.data_width.W))
   val write_data_valid = Output(Bool())
   val write_start = Input(Bool())
@@ -105,6 +98,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
     control.ras := DontCare
     control.cas := DontCare
     control.we := DontCare 
+    control.dqm := DontCare
   }
 
   //functions to send commands
@@ -157,7 +151,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
     control.address_bus := column
   }
 
-  def Write(column: UInt, data_in: UInt): Unit = {
+  def Write(column: UInt): Unit = {
     control.cs := false.B
     control.ras := true.B
     control.cas := false.B
