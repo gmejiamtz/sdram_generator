@@ -13,4 +13,7 @@ RUN sudo chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
 RUN sudo apt-get update && export DEBIAN_FRONTEND=noninteractive
 RUN sudo apt-get install sbt
 #Install everything else
-RUN apt-get -y install git help2man perl python3 make autoconf g++ flex bison ccache cmake neofetch verilator iverilog yosys openjdk-17-jdk gtkwave
+RUN apt-get -y install git help2man perl python3 make autoconf g++ flex bison ccache cmake neofetch openjdk-17-jdk wget 
+
+#gtkwave z3 verilator iverilog yosys from oss cad suite
+RUN cd /opt && wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2024-11-21/oss-cad-suite-linux-x64-20241121.tgz && tar -xf oss-cad-suite-linux-x64-20241121.tgz && export PATH="/opt/oss-cad-suite/bin:$PATH" && rm oss-cad-suite-linux-x64-20241121.tgz
