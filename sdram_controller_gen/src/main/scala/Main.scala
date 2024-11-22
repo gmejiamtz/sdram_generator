@@ -1,7 +1,8 @@
 import play.api.libs.json._
+import scala.sys.process._
 import chisel3.stage.ChiselStage
 import sdram_general._
-object Hello {
+object SDRAMController_Generate {
   def main(args: Array[String]): Unit = {
     println(
       "This program is aimed at taking in a json config and spitting out Verilog for an SDRAM controller..."
@@ -38,6 +39,10 @@ object Hello {
     val chiselStage = new ChiselStage
     //called SDRAMController.v
     chiselStage.emitVerilog(new SDRAMController(params), args)
-    println("Verilog Generated at SDRAMController.v")
+    val curr_dir = System.getProperty("user.dir")
+    println(s"Verilog Generated at: $curr_dir")
+    //val formal_verify = true;
+    val sby_proc = Process("sby --help")
+    sby_proc.!
   }
 }

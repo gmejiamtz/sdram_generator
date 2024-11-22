@@ -1,0 +1,13 @@
+[options]
+mode prove
+depth 20
+
+[engines]
+smtbmc
+
+[script]
+read -formal Counter.v
+prep -top Counter
+
+[files]
+build/artifacts/netlist/Counter.v

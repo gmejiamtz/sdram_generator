@@ -35,3 +35,4 @@ metals.sbt
 *.fir
 *.v
 *.json
+*.f
