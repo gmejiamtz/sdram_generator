@@ -2,8 +2,6 @@
     "company": "UCSC",
     "name": "testchip2",
     "config": {
-        "num_of_read_channels": 1,
-        "num_of_write_channels": 1,
         "data_width": 16,
         "address_width": 12,
         "dqm_width": 2,
