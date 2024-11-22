@@ -1,13 +1,14 @@
 [options]
-mode prove
+mode bmc
 depth 20
 
 [engines]
-smtbmc
+smtbmc yices
 
 [script]
-read -formal Counter.v
-prep -top Counter
+read -formal SDRAMController.v AnalogConnection.v
+prep -top SDRAMController
 
 [files]
-build/artifacts/netlist/Counter.v
+SDRAMController.v
+AnalogConnection.v

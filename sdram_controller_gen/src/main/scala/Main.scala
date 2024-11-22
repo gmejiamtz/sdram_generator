@@ -42,7 +42,7 @@ object SDRAMController_Generate {
     val curr_dir = System.getProperty("user.dir")
     println(s"Verilog Generated at: $curr_dir")
     //val formal_verify = true;
-    val sby_proc = Process("sby --help")
+    val sby_proc = Process(s"sby $curr_dir/src/test/formal/formal.sby")
     sby_proc.!
   }
 }
