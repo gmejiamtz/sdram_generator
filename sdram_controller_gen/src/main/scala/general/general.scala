@@ -47,6 +47,9 @@ case class SDRAMControllerParams(
   //get duration of a single period in ns
   val period_duration = Duration(1 / frequency.toFloat, SECONDS)
   val period = period_duration.toNanos.toInt
+  //cycles to spam NOPs for SDRAM initialization
+  val cycles_for_100us =
+    (Duration(100, MICROSECONDS).toNanos.toInt / period.toFloat).ceil.toInt
   //needs to change to variable = ceil(t_rcd / clk_period)
   val active_to_rw_delay = (datasheet("t_rcd").toFloat / period).ceil.toInt
   //hardcoded by the datasheet - converted to ns

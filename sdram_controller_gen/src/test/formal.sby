@@ -6,9 +6,9 @@ depth 20
 smtbmc yices
 
 [script]
-read -formal SDRAMController.v AnalogConnection.v
+read -formal SDRAMController.sv AnalogConnection.sv
 prep -top SDRAMController
 
 [files]
-SDRAMController.v
-AnalogConnection.v
+SDRAMController.sv
+AnalogConnection.sv

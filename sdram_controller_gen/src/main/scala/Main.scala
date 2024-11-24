@@ -44,7 +44,7 @@ object SDRAMController_Generate {
     println(s"Verilog Generated at: $curr_dir")
     new File("SDRAMController.v").renameTo(new File("SDRAMController.sv"))
     //val formal_verify = true;
-    //val sby_proc = Process(s"sby $curr_dir/src/test/formal.sby")
-    //sby_proc.!
+    val sby_proc = Process(s"sby $curr_dir/src/test/formal.sby")
+    sby_proc.!
   }
 }

@@ -20,12 +20,8 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val cas_counter = Counter(p.cas_latency + 1)
   //counter to terminate write
   val terminate_write = Counter(p.t_rw_cycles + 1)
-
-  //cycles to spam NOPs for SDRAM initialization
-  val cycles_for_100us =
-    (Duration(100, MICROSECONDS).toNanos.toInt / p.period.toFloat).ceil.toInt
   //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
-  val hundred_micro_sec_counter = Counter(cycles_for_100us + 4)
+  val hundred_micro_sec_counter = Counter(p.cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
   val refresh_every_cycles = (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
@@ -61,16 +57,16 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       sdram_commands.NOP()
       hundred_micro_sec_counter.inc()
       //time to precharge
-      when(hundred_micro_sec_counter.value === cycles_for_100us.U) {
+      when(hundred_micro_sec_counter.value === p.cycles_for_100us.U) {
         sdram_commands.Precharge()
       }.elsewhen(
-          (hundred_micro_sec_counter.value === (cycles_for_100us + 1).U) | (hundred_micro_sec_counter.value === (cycles_for_100us + 2).U)
+          (hundred_micro_sec_counter.value === (p.cycles_for_100us + 1).U) | (hundred_micro_sec_counter.value === (p.cycles_for_100us + 2).U)
         ) {
           //time to auto refresh
           sdram_commands.Refresh()
           refresh_outstanding := false.B
         }
-        .elsewhen(hundred_micro_sec_counter.value === (cycles_for_100us + 3).U) {
+        .elsewhen(hundred_micro_sec_counter.value === (p.cycles_for_100us + 3).U) {
           //time to program
           //address holds programmed options
           //12'b00_wb_opcode_cas_bT_bL
