@@ -34,6 +34,7 @@ metals.sbt
 # Generated Verilog
 *.fir
 *.v
+*.sv
 *.json
 *.f
 # sby formal directiory
