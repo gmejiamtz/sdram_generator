@@ -45,6 +45,8 @@ object SDRAMController_Generate {
     println(s"Verilog Generated at: $curr_dir")
     new File("SDRAMController.v").renameTo(new File("SDRAMController.sv"))
     //val formal_verify = true;
+    val rm_formal_proc = Process(s"rm -rf $curr_dir/src/test/formal")
+    rm_formal_proc.!
     val sby_proc = Process(s"sby $curr_dir/src/test/formal.sby")
     sby_proc.!
     val sva_mods = new SVA_Modifier()
