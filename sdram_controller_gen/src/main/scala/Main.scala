@@ -3,6 +3,7 @@ import java.io.File
 import scala.sys.process._
 import chisel3.stage.ChiselStage
 import sdram_general._
+import sva._
 object SDRAMController_Generate {
   def main(args: Array[String]): Unit = {
     println(
@@ -46,5 +47,8 @@ object SDRAMController_Generate {
     //val formal_verify = true;
     val sby_proc = Process(s"sby $curr_dir/src/test/formal.sby")
     sby_proc.!
+    val sva_mods = new SVA_Modifier()
+    sva_mods.begin_formal_block(s"$curr_dir/SDRAMController.sv")
+    sva_mods.end_formal_block(s"$curr_dir/SDRAMController.sv")
   }
 }
