@@ -1,0 +1,14 @@
+[options]
+mode bmc
+depth 20
+
+[engines]
+smtbmc yices
+
+[script]
+read -formal SDRAMController.v AnalogConnection.v
+prep -top SDRAMController
+
+[files]
+SDRAMController.v
+AnalogConnection.v

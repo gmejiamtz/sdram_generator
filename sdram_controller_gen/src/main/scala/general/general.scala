@@ -66,7 +66,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
   //address to index row and col - shared in sdram
   val address_bus = Output(UInt(p.address_width.W))
   //when reading its output when writing it is input
-  val dq = Analog((p.data_width.W))
+  //val dq = Analog((p.data_width.W))
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
@@ -159,7 +159,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
     control.address_bus := column
   }
 }
-
+/*
 class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackBoxInline {
     val io = IO(new Bundle {
     val data_inout = Analog(p.data_width.W)
@@ -181,3 +181,4 @@ class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackB
     |endmodule
     """.stripMargin)
 }
+*/

@@ -131,7 +131,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
         dut.io.read_row_address.poke(0.U)
-        dut.io.read_start(0).poke(true.B)
+        dut.io.read_start.poke(true.B)
         //send active command
         expectActive(dut)
         dut.clock.step()
@@ -186,7 +186,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
         dut.io.write_row_address(45.U)
-        dut.io.write_start(0).poke(true.B)
+        dut.io.write_start.poke(true.B)
         //send active command
         expectActive(dut)
         dut.clock.step()

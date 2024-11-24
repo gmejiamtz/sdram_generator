@@ -37,12 +37,15 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   when (refresh_counter.inc()) {
     refresh_outstanding := true.B
   }
+  /*
   //handle analog conntion
   val handle_analog = Module(new AnalogConnection(p))
   io.sdram_control.dq <> handle_analog.io.data_inout 
   handle_analog.io.write_data := io.write_data
   handle_analog.io.oen := oen_reg
   io.read_data := handle_analog.io.read_data
+  */
+  io.read_data := DontCare //defaults to this since analog handles data movement
   //other outputs
   io.state_out := state
   io.read_data_valid := false.B

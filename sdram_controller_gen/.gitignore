@@ -36,3 +36,5 @@ metals.sbt
 *.v
 *.json
 *.f
+# sby formal directiory
+src/test/formal/
