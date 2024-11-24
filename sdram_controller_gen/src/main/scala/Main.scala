@@ -42,15 +42,18 @@ object SDRAMController_Generate {
     //called SDRAMController.v
     chiselStage.emitVerilog(new SDRAMController(params), args)
     val curr_dir = System.getProperty("user.dir")
-    println(s"Verilog Generated at: $curr_dir")
-    new File("SDRAMController.v").renameTo(new File("SDRAMController.sv"))
     //val formal_verify = true;
     val rm_formal_proc = Process(s"rm -rf $curr_dir/src/test/formal")
     rm_formal_proc.!
+    val sdram_sv_name = "SDRAMController.sv"
+    // Rewrite all modules to SV and add asserts to SDRAM Controller module
+    new File("SDRAMController.v").renameTo(new File(sdram_sv_name))
+    val sva_mods = new SVA_Modifier(s"$curr_dir/$sdram_sv_name" ,params)
+    sva_mods.begin_formal_block()
+    sva_mods.init_to_idle_assertion()
+    sva_mods.end_formal_block()
+    println(s"Verilog Generated at: $curr_dir")
     val sby_proc = Process(s"sby $curr_dir/src/test/formal.sby")
     sby_proc.!
-    val sva_mods = new SVA_Modifier()
-    sva_mods.begin_formal_block(s"$curr_dir/SDRAMController.sv")
-    sva_mods.end_formal_block(s"$curr_dir/SDRAMController.sv")
   }
 }
