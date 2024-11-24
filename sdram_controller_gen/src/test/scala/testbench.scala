@@ -185,7 +185,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
         //ready for input
-        dut.io.write_row_address(45.U)
+        dut.io.write_row_address.poke(45.U)
         dut.io.write_start.poke(true.B)
         //send active command
         expectActive(dut)
