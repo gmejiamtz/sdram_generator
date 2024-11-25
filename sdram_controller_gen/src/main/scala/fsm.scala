@@ -120,6 +120,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         state := ControllerState.reading
         //read command
         val column = io.read_col_address
+        active_to_rw_counter.reset()
         sdram_commands.Read(column)
         oen_reg := true.B
         stated_read := false.B
@@ -132,6 +133,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         state := ControllerState.writing
         //write command
         val column = io.write_col_address
+        active_to_rw_counter.reset()
         started_write := false.B
         oen_reg := false.B
         sdram_commands.Write(column)

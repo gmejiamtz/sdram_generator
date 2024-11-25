@@ -28,7 +28,19 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams){
     def init_to_idle_assertion(): Unit = {
         val lines = Source.fromFile(filePath).getLines().toList
         val cycles_for_init_to_idle = sdram_params.cycles_for_100us + 3
-        val assert_block = s"init_to_idle_assert:\n\tassert property (@(posedge clock) disable iff (reset) state == 1 |-> ##$cycles_for_init_to_idle state == 2);\n"
+        val assert_block = s"init_to_idle_assert:\n\tassert property (@(posedge clock) disable iff (reset) io_state_out == 1 |-> ##$cycles_for_init_to_idle io_state_out == 2);\n"
+        val updatedLines = lines :+ assert_block
+        Files.write(
+            Paths.get(filePath),
+            updatedLines.mkString("\n").getBytes,
+            StandardOpenOption.TRUNCATE_EXISTING,
+            StandardOpenOption.WRITE
+        )
+    }
+    def idle_to_active_assertion(): Unit = {
+        val lines = Source.fromFile(filePath).getLines().toList
+        val cycles_for_init_to_idle = sdram_params.cycles_for_100us + 3
+        val assert_block = s"idle_to_active_assert:\n\tassert property (@(posedge clock) disable iff (reset) ($$past(io_state_out) == 1) & (io_state_out == 2) & (io_read_start | io_write_start) |=> ##1 io_state_out == 3);\n"
         val updatedLines = lines :+ assert_block
         Files.write(
             Paths.get(filePath),
