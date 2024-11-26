@@ -101,4 +101,35 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams) {
       StandardOpenOption.WRITE
     )
   }
+
+  def read_to_valid_data_assert(): Unit = {
+    val lines = Source.fromFile(filePath).getLines().toList
+    val cas_latency = sdram_params.cas_latency
+    val block_name = "read_to_valid_data:\n"
+    val main_property =
+      s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 6) |=> ##$cas_latency (io_read_data_valid) );\n"
+    val assert_block = block_name.concat(main_property)
+    val updatedLines = lines :+ assert_block
+    Files.write(
+      Paths.get(filePath),
+      updatedLines.mkString("\n").getBytes,
+      StandardOpenOption.TRUNCATE_EXISTING,
+      StandardOpenOption.WRITE
+    )
+  }
+  def read_to_idle_assert(): Unit = {
+    val lines = Source.fromFile(filePath).getLines().toList
+    val cas_latency = sdram_params.cas_latency
+    val block_name = "read_to_valid_data:\n"
+    val main_property =
+      s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 6) |=> ##$cas_latency (io_read_data_valid) );\n"
+    val assert_block = block_name.concat(main_property)
+    val updatedLines = lines :+ assert_block
+    Files.write(
+      Paths.get(filePath),
+      updatedLines.mkString("\n").getBytes,
+      StandardOpenOption.TRUNCATE_EXISTING,
+      StandardOpenOption.WRITE
+    )
+  }
 }
