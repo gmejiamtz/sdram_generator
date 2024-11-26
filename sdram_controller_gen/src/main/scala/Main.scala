@@ -50,7 +50,7 @@ object SDRAMController_Generate {
     new File("SDRAMController.v").renameTo(new File(sdram_sv_name))
     val sva_mods = new SVA_Modifier(s"$curr_dir/$sdram_sv_name" ,params)
     sva_mods.begin_formal_block()
-    //sva_mods.init_to_idle_assertion()
+    sva_mods.init_to_idle_assertion()
     sva_mods.idle_to_active_assertion()
     sva_mods.active_to_rw_assertion()
     sva_mods.end_formal_block()

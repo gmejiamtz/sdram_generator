@@ -28,7 +28,10 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams){
     def init_to_idle_assertion(): Unit = {
         val lines = Source.fromFile(filePath).getLines().toList
         val cycles_for_init_to_idle = sdram_params.cycles_for_100us + 3
-        val assert_block = s"init_to_idle_assert:\n\tassert property (@(posedge clock) disable iff (reset) io_state_out == 1 |-> ##$cycles_for_init_to_idle io_state_out == 2);\n"
+        val block_name = "init_to_idle:\n"
+        val assumption1 = s"\tassume property (@(posedge clock) disable iff (reset) (hundred_micro_sec_counter_value == $cycles_for_init_to_idle));\n"
+        val main_property = s"\tassert property (@(posedge clock) disable iff (reset) io_state_out == 1 |=> io_state_out == 2);\n"
+        val assert_block = block_name.concat(assumption1).concat(main_property)
         val updatedLines = lines :+ assert_block
         Files.write(
             Paths.get(filePath),
@@ -39,7 +42,6 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams){
     }
     def idle_to_active_assertion(): Unit = {
         val lines = Source.fromFile(filePath).getLines().toList
-        val cycles_for_init_to_idle = sdram_params.cycles_for_100us + 3
         val block_name = "idle_to_active:\n"
         val assumption1 = s"\tassume property (@(posedge clock) disable iff (reset) (~refresh_outstanding));\n"
         val main_property = s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 2) & (io_read_start | io_write_start) |=> io_state_out == 3);\n"
