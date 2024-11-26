@@ -54,8 +54,13 @@ class MemModelCASEntry(addrWidth: Int, bankWidth: Int) extends Bundle {
   val bankSel = UInt(bankWidth.W)
 }
 
-class MemModel(width: Int, hz: Int, banks: Int, rowWidth: Int = 9, colWidth: Int = 6)
-    extends Module {
+class MemModel(
+  width: Int,
+  hz: Int,
+  banks: Int,
+  rowWidth: Int = 9,
+  colWidth: Int = 6
+) extends Module {
   val bankWidth = log2Ceil(banks)
   require(colWidth < rowWidth)
   require(banks > 1)
@@ -171,31 +176,34 @@ class MemModel(width: Int, hz: Int, banks: Int, rowWidth: Int = 9, colWidth: Int
   when(io.cmd === MemCommand.refresh && io.commandEnable) {
     when(refreshCounter > refreshPerCycle.U) {
       refreshCounter := refreshCounter - refreshPerCycle.U
-    } .otherwise {
+    }.otherwise {
       refreshCounter := 0.U
     }
-  } .elsewhen(refreshCounter < (refreshMax - 1).U) {
+  }.elsewhen(refreshCounter < (refreshMax - 1).U) {
     refreshCounter := refreshCounter + 1.U
   }
 
   when(!io.commandEnable || refreshCounter >= (refreshMax - 1).U) {
     // do nothing
-  } .elsewhen(io.cmd === MemCommand.active) {
-    // Only activate a bank row if it is valid
-    when(!bankRowValid(io.bankSel)) {
-      bankRow(io.bankSel) := io.addr
-      bankRowValid(io.bankSel) := true.B
+  }.elsewhen(io.cmd === MemCommand.active) {
+      // Only activate a bank row if it is valid
+      when(!bankRowValid(io.bankSel)) {
+        bankRow(io.bankSel) := io.addr
+        bankRowValid(io.bankSel) := true.B
+      }
     }
-  } .elsewhen(io.cmd === MemCommand.mode) {
-    mode := io.addr
-  } .elsewhen(io.cmd === MemCommand.precharge) {
-    when(io.addr(autoPrechargeBit)) {
-      // Precharge all banks when MSB of io.addr high
-      bankRowValid := VecInit.fill(banks)(false.B)
-    } .otherwise {
-      bankRowValid(io.bankSel) := false.B
+    .elsewhen(io.cmd === MemCommand.mode) {
+      mode := io.addr
     }
-  } .elsewhen(io.cmd === MemCommand.terminate) {
-    opRunning := false.B
-  }
+    .elsewhen(io.cmd === MemCommand.precharge) {
+      when(io.addr(autoPrechargeBit)) {
+        // Precharge all banks when MSB of io.addr high
+        bankRowValid := VecInit.fill(banks)(false.B)
+      }.otherwise {
+        bankRowValid(io.bankSel) := false.B
+      }
+    }
+    .elsewhen(io.cmd === MemCommand.terminate) {
+      opRunning := false.B
+    }
 }

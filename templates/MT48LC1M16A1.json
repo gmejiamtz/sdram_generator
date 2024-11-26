@@ -2,10 +2,9 @@
     "company": "Micron",
     "name": "MT48LC1M16A1",
     "config": {
-        "num_of_read_channels": 1,
-        "num_of_write_channels": 1,
         "data_width": 16,
         "address_width": 12,
+        "dqm_width": 1,
         "frequency_scale": 1000000,
         "frequency": 125,
         "burst_length": 0,
