@@ -81,7 +81,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     val path_to_test_config = "../templates/test_templates/cas_latency3.json"
     val datasheet = create_datasheet_map(path_to_test_config)
     val params = new SDRAMControllerParams(datasheet)
-    val init_cycle_time = 
+    val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>

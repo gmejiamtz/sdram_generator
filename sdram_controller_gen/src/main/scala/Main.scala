@@ -4,15 +4,17 @@ import scala.sys.process._
 import chisel3.stage.ChiselStage
 import sdram_general._
 import sva._
+
 object SDRAMController_Generate {
+
   def main(args: Array[String]): Unit = {
     println(
       "This program is aimed at taking in a json config and spitting out Verilog for an SDRAM controller..."
     )
-     if (args.length != 1) {
+    if (args.length != 1) {
       println("Usage: sbt 'run <config_file_path>'")
       sys.exit(1)
-     }
+    }
     val configFilePath = args(0)
     println(s"Config file path provided: $configFilePath")
     //Parse the config json file
@@ -27,8 +29,9 @@ object SDRAMController_Generate {
     }.toMap
     //make this a optional verbose arg but static for now
     println("Configs")
-    resultMap.foreach { case (key, value) =>
-      println(s"$key -> $value")
+    resultMap.foreach {
+      case (key, value) =>
+        println(s"$key -> $value")
     }
     //test for generation
     //wanted coded item 0000_0111_0000
@@ -48,7 +51,7 @@ object SDRAMController_Generate {
     val sdram_sv_name = "SDRAMController.sv"
     // Rewrite all modules to SV and add asserts to SDRAM Controller module
     new File("SDRAMController.v").renameTo(new File(sdram_sv_name))
-    val sva_mods = new SVA_Modifier(s"$curr_dir/$sdram_sv_name" ,params)
+    val sva_mods = new SVA_Modifier(s"$curr_dir/$sdram_sv_name", params)
     sva_mods.begin_formal_block()
     sva_mods.init_to_idle_assertion()
     sva_mods.idle_to_active_assertion()

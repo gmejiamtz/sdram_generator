@@ -1,4 +1,5 @@
 package sdram_general
+
 import chisel3._
 import chisel3.util._
 import scala.concurrent.duration._
@@ -6,6 +7,7 @@ import chisel3.experimental.Analog
 import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
 
 object ControllerState extends ChiselEnum {
+
   val clearing, initialization, idle, active, refresh, nop1, reading, writing,
     precharge, nop2 = Value
 }
@@ -26,7 +28,10 @@ case class SDRAMControllerParams(
     datasheet("cas_latency") >= 1 | datasheet("burst_length") <= 3,
     "CAS Latency must between 1 and 3"
   )
-  require(datasheet("opcode") == 0, "Opcode must be 0, all other values reserved")
+  require(
+    datasheet("opcode") == 0,
+    "Opcode must be 0, all other values reserved"
+  )
   require(
     datasheet("write_burst") == 0 || datasheet("write_burst") == 1,
     "Write Burst must be 0 for Programmed Length or 1 for single location access"
@@ -47,6 +52,7 @@ case class SDRAMControllerParams(
   //get duration of a single period in ns
   val period_duration = Duration(1 / frequency.toFloat, SECONDS)
   val period = period_duration.toNanos.toInt
+
   //cycles to spam NOPs for SDRAM initialization
   val cycles_for_100us =
     (Duration(100, MICROSECONDS).toNanos.toInt / period.toFloat).ceil.toInt
@@ -90,7 +96,7 @@ class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
   val state_out = Output(ControllerState())
 }
 
-class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
+class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
   var control = controls
 
   def initialize_controls(): Unit = {
@@ -100,7 +106,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
     control.cs := DontCare
     control.ras := DontCare
     control.cas := DontCare
-    control.we := DontCare 
+    control.we := DontCare
     control.dqm := DontCare
   }
 
@@ -128,7 +134,6 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM){
     control.we := true.B
     control.address_bus := DontCare
   }
-
 
   def Active(row_and_bank: UInt): Unit = {
     control.cs := false.B
@@ -184,4 +189,4 @@ class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackB
     |endmodule
     """.stripMargin)
 }
-*/
+ */

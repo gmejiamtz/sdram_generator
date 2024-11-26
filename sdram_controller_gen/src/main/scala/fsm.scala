@@ -24,23 +24,25 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val hundred_micro_sec_counter = Counter(p.cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
-  val refresh_every_cycles = (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
+
+  val refresh_every_cycles =
+    (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
 
   // I tried to get this to work using just wrap but it asserted refresh every cycle
   // idk counters have just always been a bit bugged
   val refresh_counter = Counter(refresh_every_cycles)
   val refresh_outstanding = RegInit(false.B)
-  when (refresh_counter.inc()) {
+  when(refresh_counter.inc()) {
     refresh_outstanding := true.B
   }
   /*
   //handle analog conntion
   val handle_analog = Module(new AnalogConnection(p))
-  io.sdram_control.dq <> handle_analog.io.data_inout 
+  io.sdram_control.dq <> handle_analog.io.data_inout
   handle_analog.io.write_data := io.write_data
   handle_analog.io.oen := oen_reg
   io.read_data := handle_analog.io.read_data
-  */
+   */
   io.read_data := DontCare //defaults to this since analog handles data movement
   //other outputs
   io.state_out := state
@@ -66,7 +68,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
           sdram_commands.Refresh()
           refresh_outstanding := false.B
         }
-        .elsewhen(hundred_micro_sec_counter.value === (p.cycles_for_100us + 3).U) {
+        .elsewhen(
+          hundred_micro_sec_counter.value === (p.cycles_for_100us + 3).U
+        ) {
           //time to program
           //address holds programmed options
           //12'b00_wb_opcode_cas_bT_bL
@@ -90,10 +94,10 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         io.read_start | io.write_start
       //nop command
       sdram_commands.NOP()
-      when (refresh_outstanding) {
+      when(refresh_outstanding) {
         sdram_commands.Refresh()
         refresh_outstanding := false.B
-      } .elsewhen(go_to_active) {
+      }.elsewhen(go_to_active) {
         state := ControllerState.active
         //active command - make this a function
         val row_and_bank = io.read_row_address
@@ -128,21 +132,22 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         io.sdram_control.address_bus := io.read_col_address
         cas_counter.inc()
       }.elsewhen(
-        we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)
-      ) {
-        state := ControllerState.writing
-        //write command
-        val column = io.write_col_address
-        active_to_rw_counter.reset()
-        started_write := false.B
-        oen_reg := false.B
-        sdram_commands.Write(column)
-        //address bus now holds col address
-        io.sdram_control.address_bus := io.write_col_address
-      } .elsewhen (refresh_outstanding) {
-        sdram_commands.Refresh()
-        refresh_outstanding := false.B
-      }
+          we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)
+        ) {
+          state := ControllerState.writing
+          //write command
+          val column = io.write_col_address
+          active_to_rw_counter.reset()
+          started_write := false.B
+          oen_reg := false.B
+          sdram_commands.Write(column)
+          //address bus now holds col address
+          io.sdram_control.address_bus := io.write_col_address
+        }
+        .elsewhen(refresh_outstanding) {
+          sdram_commands.Refresh()
+          refresh_outstanding := false.B
+        }
     }
     is(ControllerState.reading) {
       state := ControllerState.reading
