@@ -70,4 +70,19 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams){
             StandardOpenOption.WRITE
         )
     }
+    def never_reaches_init_after_reset_assert(): Unit = {
+        val lines = Source.fromFile(filePath).getLines().toList
+        val block_name = "never_reaches_init_after_reset:\n"
+        val assumption1 = s"\tassume property (@(posedge clock) disable iff (reset) (io_state_out > 1));\n"
+        val main_property = s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out != 1));\n"
+        val assert_block = block_name.concat(assumption1).concat(main_property)
+        val updatedLines = lines :+ assert_block
+        Files.write(
+            Paths.get(filePath),
+            updatedLines.mkString("\n").getBytes,
+            StandardOpenOption.TRUNCATE_EXISTING,
+            StandardOpenOption.WRITE
+        )
+    }
+    
 }
