@@ -52,7 +52,7 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams){
     def active_to_rw_assertion(): Unit = {
         val lines = Source.fromFile(filePath).getLines().toList
         val active_to_rw_cycles = sdram_params.active_to_rw_delay
-        val assert_block = s"active_to_rw_assert:\n\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 3) & ($$past(io_state_out == 2)) |-> ##$active_to_rw_cycles ((io_state_out == 6) | (io_state_out == 7)));\n"
+        val assert_block = s"active_to_rw_assert:\n\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 3) & ($$past(io_state_out) == 2) |-> ##$active_to_rw_cycles ((io_state_out == 6) | (io_state_out == 7)));\n"
         val updatedLines = lines :+ assert_block
         Files.write(
             Paths.get(filePath),
