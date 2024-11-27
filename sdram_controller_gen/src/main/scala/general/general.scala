@@ -5,6 +5,7 @@ import chisel3.util._
 import scala.concurrent.duration._
 import chisel3.experimental.Analog
 import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
+import scala.math.pow
 
 object ControllerState extends ChiselEnum {
 
@@ -43,7 +44,7 @@ case class SDRAMControllerParams(
   val dqm_width = datasheet("dqm_width")
   //set by user
   val burst_length = datasheet("burst_length")
-  val burst_type = datasheet("burst_length")
+  val burst_type = datasheet("burst_type")
   val cas_latency = datasheet("cas_latency")
   val opcode = datasheet("opcode")
   val write_burst = datasheet("write_burst")

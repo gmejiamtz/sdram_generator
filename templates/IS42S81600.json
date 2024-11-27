@@ -7,7 +7,7 @@
         "dqm_width": 1,
         "frequency_scale": 1000000,
         "frequency": 125,
-        "burst_length": 0,
+        "burst_length": 3,
         "burst_type": 0,
         "cas_latency": 3,
         "opcode": 0,
