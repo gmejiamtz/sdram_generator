@@ -106,9 +106,10 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams) {
     val lines = Source.fromFile(filePath).getLines().toList
     val cas_latency = sdram_params.cas_latency
     val block_name = "read_to_valid_data:\n"
+    val assumption1 = s"\tassume property (@(posedge clock) disable iff (reset) (read_state_counter_value == 0));\n"
     val main_property =
       s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 6) |=> ##$cas_latency (io_read_data_valid) );\n"
-    val assert_block = block_name.concat(main_property)
+    val assert_block = block_name.concat(assumption1).concat(main_property)
     val updatedLines = lines :+ assert_block
     Files.write(
       Paths.get(filePath),
