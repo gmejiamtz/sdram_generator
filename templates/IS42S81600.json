@@ -6,7 +6,7 @@
         "address_width": 14,
         "dqm_width": 1,
         "frequency_scale": 1000000,
-        "frequency": 125,
+        "frequency": 166,
         "burst_length": 1,
         "burst_type": 0,
         "cas_latency": 3,
