@@ -59,6 +59,7 @@ object SDRAMController_Generate {
     sva_mods.never_reaches_init_after_reset_assert()
     sva_mods.read_to_valid_data_assert()
     sva_mods.read_to_idle_assert()
+    sva_mods.write_to_idle_assert()
     sva_mods.end_formal_block()
     println(s"Verilog Generated at: $curr_dir")
     //val sby_proc = Process(s"sby $curr_dir/src/test/formal.sby")

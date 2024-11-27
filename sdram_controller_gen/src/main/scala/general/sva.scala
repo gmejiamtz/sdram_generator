@@ -72,10 +72,12 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams) {
       s"\tassume property (@(posedge clock) disable iff (reset) (started_read | started_write));\n"
     val assumption2 =
       s"\tassume property (@(posedge clock) disable iff (reset) (cas_counter_value == 0));\n"
+    val assumption3 =
+      s"\tassume property (@(posedge clock) disable iff (reset) (active_to_rw_counter_value == 0));\n"
     val main_property =
-      s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 3) & ($$past(io_state_out) == 2) |-> ##$active_to_rw_cycles ((io_state_out == 6) | (io_state_out == 7)));\n"
+      s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 3) |-> ##$active_to_rw_cycles ((io_state_out == 6) | (io_state_out == 7)));\n"
     val assert_block =
-      block_name.concat(assumption1).concat(assumption2).concat(main_property)
+      block_name.concat(assumption1).concat(assumption2).concat(assumption3).concat(main_property)
     val updatedLines = lines :+ assert_block
     Files.write(
       Paths.get(filePath),
@@ -127,6 +129,23 @@ class SVA_Modifier(path: String, sdram_params: SDRAMControllerParams) {
     val assumption1 = s"\tassume property (@(posedge clock) disable iff (reset) (read_state_counter_value == 0));\n"
     val main_property =
       s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 6) |=> ##$total_cycles_in_read_state (io_state_out == 2) );\n"
+    val assert_block = block_name.concat(assumption1).concat(main_property)
+    val updatedLines = lines :+ assert_block
+    Files.write(
+      Paths.get(filePath),
+      updatedLines.mkString("\n").getBytes,
+      StandardOpenOption.TRUNCATE_EXISTING,
+      StandardOpenOption.WRITE
+    )
+  }
+  def write_to_idle_assert(): Unit = {
+    val lines = Source.fromFile(filePath).getLines().toList
+    val burst_cycles = scala.math.pow(2,sdram_params.burst_length)
+    val total_cycles_in_write_state = burst_cycles.toInt
+    val block_name = "write_to_idle:\n"
+    val assumption1 = s"\tassume property (@(posedge clock) disable iff (reset) (write_state_counter_value == 0));\n"
+    val main_property =
+      s"\tassert property (@(posedge clock) disable iff (reset) (io_state_out == 7) |=> ##$total_cycles_in_write_state (io_state_out == 2) );\n"
     val assert_block = block_name.concat(assumption1).concat(main_property)
     val updatedLines = lines :+ assert_block
     Files.write(
