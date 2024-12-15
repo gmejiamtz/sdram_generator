@@ -34,7 +34,6 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   // I tried to get this to work using just wrap but it asserted refresh every cycle
   // idk counters have just always been a bit bugged
   val refresh_counter = Counter(refresh_every_cycles)
-  val refresh_outstanding = RegInit(false.B)
   when(refresh_counter.inc()) {
     refresh_outstanding := true.B
   }
