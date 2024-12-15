@@ -110,7 +110,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     }
   }
 
-  "Test for read data validity for cas latency of 3" in {
+  "Tests for read data validity for cas latency of 3" in {
     //wanted coded item 0000_0111_0000
     val path_to_test_config = "../templates/test_templates/cas_latency3.json"
     val datasheet = create_datasheet_map(path_to_test_config)
@@ -118,6 +118,8 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
+    val read_time =
+      (params.cas_latency + scala.math.pow(2, params.burst_length)).toInt
     test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.clock.setTimeout(0)
@@ -150,9 +152,13 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
         //loop until cas latency is reached
-        for (time_in_read <- 0 until (datasheet("cas_latency") - 1)) {
+        for (time_in_read <- 1 until (read_time)) {
           dut.io.state_out.expect(ControllerState.reading)
-          dut.io.read_data_valid.expect(false.B)
+          if (time_in_read >= params.cas_latency) {
+            dut.io.read_data_valid.expect(true.B)
+          } else {
+            dut.io.read_data_valid.expect(false.B)
+          }
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
@@ -173,6 +179,7 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
+    val write_time = scala.math.pow(2, params.burst_length).toInt
     test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.clock.setTimeout(0)
@@ -205,9 +212,9 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.writing)
         //loop until cas latency is reached
-        for (time_in_read <- 0 until params.t_rw_cycles) {
+        for (time_in_write <- 1 until write_time) {
           dut.io.state_out.expect(ControllerState.writing)
-          dut.io.read_data_valid.expect(false.B)
+          dut.io.write_data_valid.expect(true.B)
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
@@ -228,6 +235,8 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
+    val read_time =
+      (params.cas_latency + scala.math.pow(2, params.burst_length)).toInt
     test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.clock.setTimeout(0)
@@ -260,9 +269,13 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
         //loop until cas latency is reached
-        for (time_in_read <- 0 until (datasheet("cas_latency") - 1)) {
+        for (time_in_read <- 1 until (read_time)) {
           dut.io.state_out.expect(ControllerState.reading)
-          dut.io.read_data_valid.expect(false.B)
+          if (time_in_read >= params.cas_latency) {
+            dut.io.read_data_valid.expect(true.B)
+          } else {
+            dut.io.read_data_valid.expect(false.B)
+          }
           dut.clock.step()
         }
         //no clock step means this value is high on a transition
@@ -283,6 +296,8 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
+    val read_time =
+      (params.cas_latency + scala.math.pow(2, params.burst_length)).toInt
     test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
       dut =>
         dut.clock.setTimeout(0)
@@ -315,9 +330,13 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.reading)
         //loop until cas latency is reached
-        for (time_in_read <- 0 until (datasheet("cas_latency") - 1)) {
+        for (time_in_read <- 1 until (read_time)) {
           dut.io.state_out.expect(ControllerState.reading)
-          dut.io.read_data_valid.expect(false.B)
+          if (time_in_read >= params.cas_latency) {
+            dut.io.read_data_valid.expect(true.B)
+          } else {
+            dut.io.read_data_valid.expect(false.B)
+          }
           dut.clock.step()
         }
         //no clock step means this value is high on a transition

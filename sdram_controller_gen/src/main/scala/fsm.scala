@@ -15,7 +15,6 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val read_data_reg = Reg(UInt(p.data_width.W))
   val started_read = RegInit(false.B)
   val started_write = RegInit(false.B)
-  val read_state_burst_terminated = RegInit(false.B)
   val oen_reg = RegInit(false.B)
   val refresh_outstanding = RegInit(false.B)
   //counters
@@ -25,8 +24,12 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val hundred_micro_sec_counter = Counter(p.cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
-  val read_state_counter = Counter(p.cas_latency + scala.math.pow(2,p.burst_length).toInt + 1)
-  val write_state_counter = Counter(scala.math.pow(2,p.burst_length).toInt + 1)
+
+  val read_state_counter = Counter(
+    p.cas_latency + scala.math.pow(2, p.burst_length).toInt + 1
+  )
+  val write_state_counter = Counter(scala.math.pow(2, p.burst_length).toInt + 1)
+
   val refresh_every_cycles =
     (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
 
@@ -138,7 +141,6 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         io.sdram_control.address_bus := io.read_col_address
         cas_counter.inc()
         read_state_counter.inc()
-        read_state_burst_terminated := false.B
       }.elsewhen(
           we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)
         ) {
@@ -171,16 +173,15 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       when(cas_counter.value === p.cas_latency.U) {
         //data is valid
         io.read_data_valid := true.B
-        //precharge command
         //io.read_data := read_data_reg
-        when(!read_state_burst_terminated){
-          sdram_commands.Precharge()
-          read_state_burst_terminated := true.B
-        }
       }
-      when(read_state_counter.value === (p.cas_latency + scala.math.pow(2,p.burst_length).toInt).U){
+      when(
+        read_state_counter.value === (p.cas_latency + scala.math
+          .pow(2, p.burst_length)
+          .toInt).U
+      ) {
         state := ControllerState.idle
-        read_state_burst_terminated := false.B
+        sdram_commands.Precharge()
       }
     }
     is(ControllerState.writing) {
@@ -188,7 +189,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       sdram_commands.NOP()
       io.write_data_valid := true.B
       write_state_counter.inc()
-      when(write_state_counter.value === scala.math.pow(2,p.burst_length).toInt.U) {
+      when(
+        write_state_counter.value === scala.math.pow(2, p.burst_length).toInt.U
+      ) {
         //precharge command
         sdram_commands.Precharge()
         state := ControllerState.idle
