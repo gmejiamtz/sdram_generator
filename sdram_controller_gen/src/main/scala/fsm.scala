@@ -24,18 +24,17 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val hundred_micro_sec_counter = Counter(p.cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
-
   val read_state_counter = Counter(
     p.cas_latency + scala.math.pow(2, p.burst_length).toInt + 1
   )
   val write_state_counter = Counter(scala.math.pow(2, p.burst_length).toInt + 1)
-
   val refresh_every_cycles =
     (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
 
   // I tried to get this to work using just wrap but it asserted refresh every cycle
   // idk counters have just always been a bit bugged
   val refresh_counter = Counter(refresh_every_cycles)
+  val refresh_outstanding = RegInit(false.B)
   when(refresh_counter.inc()) {
     refresh_outstanding := true.B
   }
