@@ -11,10 +11,9 @@ File names will be the SDRAM name as stated in its datasheet. The following is a
     "company": "Micron",
     "name": "MT48LC1M16A1",
     "config": {
-        "num_of_read_channels": 1,
-        "num_of_write_channels": 1,
         "data_width": 16,
-        "address_width": 12,
+        "address_width": 13,
+        "dqm_width": 12,
         "frequency_scale": 1000000,
         "frequency": 125,
         "burst_length": 0,
@@ -26,7 +25,7 @@ File names will be the SDRAM name as stated in its datasheet. The following is a
         "t_ref": 64,
         "t_wr": 10
     }
-  }
+}
 ```
 
 The first data values are for descriptions, the SDRAM targetted and the company that manufactures it. The configurations are held in "config" where all values are mapped to integer values to represent values such as clock frequency, CAS latency, number of channels, and several other timing values to be respected. Users are encouraged to implement a datasheet as a .json template and upload it for future users. 

@@ -3,8 +3,8 @@
     "name": "MT48LC1M16A1",
     "config": {
         "data_width": 16,
-        "address_width": 12,
-        "dqm_width": 1,
+        "address_width": 13,
+        "dqm_width": 2,
         "frequency_scale": 1000000,
         "frequency": 125,
         "burst_length": 0,
@@ -16,5 +16,5 @@
         "t_ref": 64,
         "t_wr": 10
     }
-  }
+}
   

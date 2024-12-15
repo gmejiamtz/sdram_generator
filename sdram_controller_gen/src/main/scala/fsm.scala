@@ -8,30 +8,32 @@ import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
 class SDRAMController(p: SDRAMControllerParams) extends Module {
   val io = IO(new SDRAMControllerIO(p))
   val sdram_commands = new SDRAMCommands(p, io.sdram_control)
+  sdram_commands.initialize_controls()
   //initialization is a to be added feature for now just wait a cycles then go to idle
   val state = RegInit(ControllerState.initialization)
-  sdram_commands.initialize_controls()
-  //hold read data
+  //registers
   val read_data_reg = Reg(UInt(p.data_width.W))
-  val stated_read = RegInit(false.B)
+  val started_read = RegInit(false.B)
   val started_write = RegInit(false.B)
   val oen_reg = RegInit(false.B)
+  val refresh_outstanding = RegInit(false.B)
+  //counters
   //counter for read data being valid
   val cas_counter = Counter(p.cas_latency + 1)
-  //counter to terminate write
-  val terminate_write = Counter(p.t_rw_cycles + 1)
   //the extra 3 cycles are for the 1 precharge and 2 auto refreshes need for programming SDRAM
   val hundred_micro_sec_counter = Counter(p.cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
-
+  val read_state_counter = Counter(
+    p.cas_latency + scala.math.pow(2, p.burst_length).toInt + 1
+  )
+  val write_state_counter = Counter(scala.math.pow(2, p.burst_length).toInt + 1)
   val refresh_every_cycles =
     (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
 
   // I tried to get this to work using just wrap but it asserted refresh every cycle
   // idk counters have just always been a bit bugged
   val refresh_counter = Counter(refresh_every_cycles)
-  val refresh_outstanding = RegInit(false.B)
   when(refresh_counter.inc()) {
     refresh_outstanding := true.B
   }
@@ -90,10 +92,15 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
     is(ControllerState.idle) {
       state := ControllerState.idle
       //address holds row right now
+      read_state_counter.reset()
+      write_state_counter.reset()
       val go_to_active =
         io.read_start | io.write_start
       //nop command
       sdram_commands.NOP()
+      //read and write isnt valid
+      io.read_data_valid := false.B
+      io.write_data_valid := false.B
       when(refresh_outstanding) {
         sdram_commands.Refresh()
         refresh_outstanding := false.B
@@ -104,7 +111,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         sdram_commands.Active(row_and_bank)
         cas_counter.reset()
         when(io.read_start) {
-          stated_read := true.B
+          started_read := true.B
         }.elsewhen(io.write_start) {
           started_write := true.B
         }
@@ -113,7 +120,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
     is(ControllerState.active) {
       state := ControllerState.active
       //read priority for now
-      val we_are_reading = stated_read
+      val we_are_reading = started_read
       val we_are_writing = started_write
       active_to_rw_counter.inc()
       //nop command
@@ -127,10 +134,11 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         active_to_rw_counter.reset()
         sdram_commands.Read(column)
         oen_reg := true.B
-        stated_read := false.B
+        started_read := false.B
         //address bus now holds col address
         io.sdram_control.address_bus := io.read_col_address
         cas_counter.inc()
+        read_state_counter.inc()
       }.elsewhen(
           we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)
         ) {
@@ -143,6 +151,8 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
           sdram_commands.Write(column)
           //address bus now holds col address
           io.sdram_control.address_bus := io.write_col_address
+          io.write_data_valid := true.B
+          write_state_counter.inc()
         }
         .elsewhen(refresh_outstanding) {
           sdram_commands.Refresh()
@@ -151,26 +161,37 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
     }
     is(ControllerState.reading) {
       state := ControllerState.reading
-      cas_counter.inc()
       //nop command
       sdram_commands.NOP()
+      read_state_counter.inc()
+      when(~(cas_counter.value === p.cas_latency.U)) {
+        cas_counter.inc()
+      }
+      //once cas latency reached data is valid until the burst ends
       when(cas_counter.value === p.cas_latency.U) {
         //data is valid
         io.read_data_valid := true.B
-        //precharge command
         //io.read_data := read_data_reg
-        sdram_commands.Precharge()
+      }
+      when(
+        read_state_counter.value === (p.cas_latency + scala.math
+          .pow(2, p.burst_length)
+          .toInt).U
+      ) {
         state := ControllerState.idle
+        sdram_commands.Precharge()
       }
     }
     is(ControllerState.writing) {
-      terminate_write.inc()
       //send nops
       sdram_commands.NOP()
-      when(terminate_write.value === p.t_rw_cycles.U) {
+      io.write_data_valid := true.B
+      write_state_counter.inc()
+      when(
+        write_state_counter.value === scala.math.pow(2, p.burst_length).toInt.U
+      ) {
         //precharge command
         sdram_commands.Precharge()
-        io.write_data_valid := true.B
         state := ControllerState.idle
       }
     }
