@@ -24,18 +24,28 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
   val hundred_micro_sec_counter = Counter(p.cycles_for_100us + 4)
   //active to read or write counter
   val active_to_rw_counter = Counter(p.active_to_rw_delay + 1)
+
   val read_state_counter = Counter(
     p.cas_latency + scala.math.pow(2, p.burst_length).toInt + 1
   )
   val write_state_counter = Counter(scala.math.pow(2, p.burst_length).toInt + 1)
+
   val refresh_every_cycles =
     (p.time_for_1_refresh.toInt / p.period.toFloat).ceil.toInt - 2
 
   // I tried to get this to work using just wrap but it asserted refresh every cycle
   // idk counters have just always been a bit bugged
-  val refresh_counter = Counter(refresh_every_cycles)
-  when(refresh_counter.inc()) {
+  val auto_refresh = true
+
+  val refresh_counter: Option[Counter] =
+    if (auto_refresh) Some(Counter(refresh_every_cycles)) else None
+  when(
+    (refresh_counter.get.value === (refresh_every_cycles - 1).U) & (refresh_counter.isDefined).B
+  ) {
     refresh_outstanding := true.B
+    refresh_counter.get.reset()
+  }.elsewhen((refresh_counter.isDefined).B) {
+    refresh_counter.get.inc()
   }
   /*
   //handle analog conntion
@@ -101,7 +111,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       //read and write isnt valid
       io.read_data_valid := false.B
       io.write_data_valid := false.B
-      when(refresh_outstanding) {
+      when(refresh_outstanding & (refresh_counter.isDefined).B) {
         sdram_commands.Refresh()
         refresh_outstanding := false.B
       }.elsewhen(go_to_active) {
@@ -154,7 +164,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
           io.write_data_valid := true.B
           write_state_counter.inc()
         }
-        .elsewhen(refresh_outstanding) {
+        .elsewhen(refresh_outstanding & (refresh_counter.isDefined).B) {
           sdram_commands.Refresh()
           refresh_outstanding := false.B
         }
