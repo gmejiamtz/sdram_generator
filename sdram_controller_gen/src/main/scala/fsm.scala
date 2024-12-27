@@ -39,13 +39,13 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
 
   val refresh_counter: Option[Counter] =
     if (auto_refresh) Some(Counter(refresh_every_cycles)) else None
-  when(
-    (refresh_counter.get.value === (refresh_every_cycles - 1).U) & (refresh_counter.isDefined).B
-  ) {
-    refresh_outstanding := true.B
-    refresh_counter.get.reset()
-  }.elsewhen((refresh_counter.isDefined).B) {
-    refresh_counter.get.inc()
+  if (refresh_counter.isDefined) {
+    when((refresh_counter.get.value === (refresh_every_cycles - 1).U)) {
+      refresh_outstanding := true.B
+      refresh_counter.get.reset()
+    }.otherwise {
+      refresh_counter.get.inc()
+    }
   }
   /*
   //handle analog conntion
@@ -111,10 +111,13 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       //read and write isnt valid
       io.read_data_valid := false.B
       io.write_data_valid := false.B
-      when(refresh_outstanding & (refresh_counter.isDefined).B) {
-        sdram_commands.Refresh()
-        refresh_outstanding := false.B
-      }.elsewhen(go_to_active) {
+      if (refresh_counter.isDefined) {
+        when(refresh_outstanding) {
+          sdram_commands.Refresh()
+          refresh_outstanding := false.B
+        }
+      }
+      when(go_to_active) {
         state := ControllerState.active
         //active command - make this a function
         val row_and_bank = io.read_row_address
@@ -150,24 +153,26 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         cas_counter.inc()
         read_state_counter.inc()
       }.elsewhen(
-          we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)
-        ) {
-          state := ControllerState.writing
-          //write command
-          val column = io.write_col_address
-          active_to_rw_counter.reset()
-          started_write := false.B
-          oen_reg := false.B
-          sdram_commands.Write(column)
-          //address bus now holds col address
-          io.sdram_control.address_bus := io.write_col_address
-          io.write_data_valid := true.B
-          write_state_counter.inc()
-        }
-        .elsewhen(refresh_outstanding & (refresh_counter.isDefined).B) {
+        we_are_writing & active_to_rw_counter.value === (p.active_to_rw_delay.U)
+      ) {
+        state := ControllerState.writing
+        //write command
+        val column = io.write_col_address
+        active_to_rw_counter.reset()
+        started_write := false.B
+        oen_reg := false.B
+        sdram_commands.Write(column)
+        //address bus now holds col address
+        io.sdram_control.address_bus := io.write_col_address
+        io.write_data_valid := true.B
+        write_state_counter.inc()
+      }
+      if (refresh_counter.isDefined) {
+        when(refresh_outstanding) {
           sdram_commands.Refresh()
           refresh_outstanding := false.B
         }
+      }
     }
     is(ControllerState.reading) {
       state := ControllerState.reading
