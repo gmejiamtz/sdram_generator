@@ -21,6 +21,9 @@ object SDRAMController_Generate {
     val jsonString = scala.io.Source.fromFile(configFilePath).mkString
     // Parse JSON
     val json = Json.parse(jsonString)
+    val self_refresh: Boolean =
+      (json \ "self-refresh").asOpt[Boolean].getOrElse(true)
+    println(s"Self-refresh mode: $self_refresh")
     // Extract config object
     val config = (json \ "config").as[JsObject]
     // Convert config object to Map[String, Int]
@@ -40,7 +43,7 @@ object SDRAMController_Generate {
     val cas_latency = 3
     val opcode = 0
     val write_burst = 0
-    val params = new SDRAMControllerParams(resultMap)
+    val params = new SDRAMControllerParams(resultMap, self_refresh)
     val chiselStage = new ChiselStage
     //called SDRAMController.v
     chiselStage.emitVerilog(new SDRAMController(params), args)

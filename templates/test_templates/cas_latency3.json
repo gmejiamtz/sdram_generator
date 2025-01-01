@@ -1,20 +1,19 @@
 {
-    "company": "UCSC",
-    "name": "testchip3",
-    "config": {
-        "data_width": 16,
-        "address_width": 12,
-        "dqm_width": 2,
-        "frequency_scale": 1000000,
-        "frequency": 125,
-        "burst_length": 0,
-        "burst_type": 0,
-        "cas_latency": 3,
-        "opcode": 0,
-        "write_burst": 0,
-        "t_rcd": 20,
-        "t_ref": 64,
-        "t_wr": 10
-    }
+  "company": "UCSC",
+  "name": "testchip3",
+  "config": {
+    "data_width": 16,
+    "address_width": 12,
+    "dqm_width": 2,
+    "frequency_scale": 1000000,
+    "frequency": 125,
+    "burst_length": 0,
+    "burst_type": 0,
+    "cas_latency": 3,
+    "opcode": 0,
+    "write_burst": 0,
+    "t_rcd": 20,
+    "t_ref": 64,
+    "t_wr": 10
+  }
 }
-  
