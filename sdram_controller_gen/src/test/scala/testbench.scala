@@ -76,11 +76,23 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     resultMap
   }
 
+  def self_refresh_mode(path_to_file: String): Boolean = {
+    val jsonString = scala.io.Source.fromFile(path_to_file).mkString
+    // Parse JSON
+    val json = Json.parse(jsonString)
+    // Extract config object
+    val config = (json \ "config").as[JsObject]
+    val self_refresh: Boolean =
+      (json \ "self-refresh").asOpt[Boolean].getOrElse(true)
+    self_refresh
+  }
+
   "Tests for Initialization correctness" in {
     //wanted coded item 0000_0111_0000
     val path_to_test_config = "../templates/test_templates/cas_latency3.json"
     val datasheet = create_datasheet_map(path_to_test_config)
-    val params = new SDRAMControllerParams(datasheet)
+    val self_refresh = self_refresh_mode(path_to_test_config)
+    val params = new SDRAMControllerParams(datasheet, self_refresh)
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
@@ -110,11 +122,12 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     }
   }
 
-  "Tests for read data validity for cas latency of 3" in {
+  "Tests for read data validity with cas latency of 3" in {
     //wanted coded item 0000_0111_0000
     val path_to_test_config = "../templates/test_templates/cas_latency3.json"
     val datasheet = create_datasheet_map(path_to_test_config)
-    val params = new SDRAMControllerParams(datasheet)
+    val self_refresh = self_refresh_mode(path_to_test_config)
+    val params = new SDRAMControllerParams(datasheet, self_refresh)
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
@@ -171,67 +184,12 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     }
   }
 
-  "Tests for write data validity" in {
-    //wanted coded item 0000_0111_0000
-    val path_to_test_config = "../templates/test_templates/cas_latency3.json"
-    val datasheet = create_datasheet_map(path_to_test_config)
-    val params = new SDRAMControllerParams(datasheet)
-    val init_cycle_time =
-      (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
-    val active_to_rw_delay = params.active_to_rw_delay
-    val write_time = scala.math.pow(2, params.burst_length).toInt
-    test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
-      dut =>
-        dut.clock.setTimeout(0)
-        //let sdram initialize and program
-        for (cycle <- 0 until (init_cycle_time + 3)) {
-          dut.io.state_out.expect(ControllerState.initialization)
-          dut.clock.step()
-        }
-        dut.io.state_out.expect(ControllerState.initialization)
-        dut.clock.step()
-        dut.io.state_out.expect(ControllerState.idle)
-        //ready for input
-        dut.io.write_row_address.poke(45.U)
-        dut.io.write_start.poke(true.B)
-        //send active command
-        expectActive(dut)
-        dut.clock.step()
-        dut.io.write_start.poke(false.B)
-        //expect active state
-        for (act_to_read <- 0 until active_to_rw_delay) {
-          dut.io.state_out.expect(ControllerState.active)
-          //expect nops
-          expectNOPs(dut)
-          dut.clock.step()
-        }
-        //expect write command being sent and send in an address
-        dut.io.write_col_address.poke(28.U)
-        expectWrite(dut)
-        dut.io.sdram_control.address_bus.expect(28.U)
-        dut.clock.step()
-        dut.io.state_out.expect(ControllerState.writing)
-        //loop until cas latency is reached
-        for (time_in_write <- 1 until write_time) {
-          dut.io.state_out.expect(ControllerState.writing)
-          dut.io.write_data_valid.expect(true.B)
-          dut.clock.step()
-        }
-        //no clock step means this value is high on a transition
-        dut.io.write_data_valid.expect(true.B)
-        //expect precharge to end read
-        expectPrecharge(dut)
-        dut.clock.step()
-        dut.io.state_out.expect(ControllerState.idle)
-      //write done
-    }
-  }
-
   "Tests for read data validity with cas latency of 2" in {
     //wanted coded item 0000_0111_0000
     val path_to_test_config = "../templates/test_templates/cas_latency2.json"
     val datasheet = create_datasheet_map(path_to_test_config)
-    val params = new SDRAMControllerParams(datasheet)
+    val self_refresh = self_refresh_mode(path_to_test_config)
+    val params = new SDRAMControllerParams(datasheet, self_refresh)
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
@@ -292,7 +250,8 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
     //wanted coded item 0000_0111_0000
     val path_to_test_config = "../templates/test_templates/cas_latency2.json"
     val datasheet = create_datasheet_map(path_to_test_config)
-    val params = new SDRAMControllerParams(datasheet)
+    val self_refresh = self_refresh_mode(path_to_test_config)
+    val params = new SDRAMControllerParams(datasheet, self_refresh)
     val init_cycle_time =
       (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
     val active_to_rw_delay = params.active_to_rw_delay
@@ -346,6 +305,63 @@ class SDRAMControllerTestBench extends AnyFreeSpec with ChiselScalatestTester {
         dut.clock.step()
         dut.io.state_out.expect(ControllerState.idle)
       //read done
+    }
+  }
+
+  "Tests for write data validity" in {
+    //wanted coded item 0000_0111_0000
+    val path_to_test_config = "../templates/test_templates/cas_latency3.json"
+    val datasheet = create_datasheet_map(path_to_test_config)
+    val self_refresh = self_refresh_mode(path_to_test_config)
+    val params = new SDRAMControllerParams(datasheet, self_refresh)
+    val init_cycle_time =
+      (Duration(100, MICROSECONDS).toNanos.toInt / params.period.toFloat).ceil.toInt
+    val active_to_rw_delay = params.active_to_rw_delay
+    val write_time = scala.math.pow(2, params.burst_length).toInt
+    test(new SDRAMController(params)).withAnnotations(Seq(WriteVcdAnnotation)) {
+      dut =>
+        dut.clock.setTimeout(0)
+        //let sdram initialize and program
+        for (cycle <- 0 until (init_cycle_time + 3)) {
+          dut.io.state_out.expect(ControllerState.initialization)
+          dut.clock.step()
+        }
+        dut.io.state_out.expect(ControllerState.initialization)
+        dut.clock.step()
+        dut.io.state_out.expect(ControllerState.idle)
+        //ready for input
+        dut.io.write_row_address.poke(45.U)
+        dut.io.write_start.poke(true.B)
+        //send active command
+        expectActive(dut)
+        dut.clock.step()
+        dut.io.write_start.poke(false.B)
+        //expect active state
+        for (act_to_read <- 0 until active_to_rw_delay) {
+          dut.io.state_out.expect(ControllerState.active)
+          //expect nops
+          expectNOPs(dut)
+          dut.clock.step()
+        }
+        //expect write command being sent and send in an address
+        dut.io.write_col_address.poke(28.U)
+        expectWrite(dut)
+        dut.io.sdram_control.address_bus.expect(28.U)
+        dut.clock.step()
+        dut.io.state_out.expect(ControllerState.writing)
+        //loop until cas latency is reached
+        for (time_in_write <- 1 until write_time) {
+          dut.io.state_out.expect(ControllerState.writing)
+          dut.io.write_data_valid.expect(true.B)
+          dut.clock.step()
+        }
+        //no clock step means this value is high on a transition
+        dut.io.write_data_valid.expect(true.B)
+        //expect precharge to end read
+        expectPrecharge(dut)
+        dut.clock.step()
+        dut.io.state_out.expect(ControllerState.idle)
+      //write done
     }
   }
 

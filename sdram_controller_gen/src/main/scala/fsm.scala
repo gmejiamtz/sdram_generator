@@ -35,7 +35,7 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
 
   // I tried to get this to work using just wrap but it asserted refresh every cycle
   // idk counters have just always been a bit bugged
-  val auto_refresh = true
+  val auto_refresh = !(p.auto_refresh)
 
   val refresh_counter: Option[Counter] =
     if (auto_refresh) Some(Counter(refresh_every_cycles)) else None

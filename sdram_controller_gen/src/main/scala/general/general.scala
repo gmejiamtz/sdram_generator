@@ -14,7 +14,8 @@ object ControllerState extends ChiselEnum {
 }
 
 case class SDRAMControllerParams(
-  datasheet: Map[String, Int]
+  datasheet: Map[String, Int],
+  self_refresh: Boolean
 ) {
   //anything set to a concrete number is likely to be replaced with a parameter
   require(
@@ -53,6 +54,7 @@ case class SDRAMControllerParams(
   //get duration of a single period in ns
   val period_duration = Duration(1 / frequency.toFloat, SECONDS)
   val period = period_duration.toNanos.toInt
+  val auto_refresh: Boolean = self_refresh
 
   //cycles to spam NOPs for SDRAM initialization
   val cycles_for_100us =
@@ -185,7 +187,7 @@ class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackB
     |     input [${p.data_width - 1}:0] write_data,
     |     input oen);
     |
-    |   assign data_inout = (oen == 'b0) ? write_data : 'bzzzzzzzzzzzzzzzz;
+    |   assign data_inout = (oen == 'b0) ? write_data : 'bz;
     |   assign read_data = data_inout;
     |endmodule
     """.stripMargin)
