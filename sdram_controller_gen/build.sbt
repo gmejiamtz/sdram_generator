@@ -1,24 +1,25 @@
-ThisBuild / scalaVersion := "2.13.10"
-ThisBuild / version := "0.2.0"
+ThisBuild / scalaVersion := "2.13.15"
+ThisBuild / version := "0.3.0"
 ThisBuild / organization := "UCSC-AHD"
 
-val chiselVersion = "3.6.0"
+val chiselVersion = "6.6.0"
 
 lazy val root = (project in file("."))
   .settings(
     name := "sdram_controller_gen",
     libraryDependencies ++= Seq(
-      "edu.berkeley.cs" %% "chisel3"    % chiselVersion,
-      "edu.berkeley.cs" %% "chiseltest" % "0.6.0" % "test"
+      "org.chipsalliance" %% "chisel"    % chiselVersion,
+      "org.scalatest"     %% "scalatest" % "3.2.16" % "test"
     ),
     scalacOptions ++= Seq(
       "-language:reflectiveCalls",
       "-deprecation",
       "-feature",
-      "-Xcheckinit"
+      "-Xcheckinit",
+      "-Ymacro-annotations"
     ),
     addCompilerPlugin(
-      ("edu.berkeley.cs" % "chisel3-plugin" % chiselVersion)
+      ("org.chipsalliance" % "chisel-plugin" % chiselVersion)
         .cross(CrossVersion.full)
     )
   )
