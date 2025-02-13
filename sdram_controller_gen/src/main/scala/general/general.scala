@@ -78,7 +78,7 @@ class ToSDRAM(p: SDRAMControllerParams) extends Bundle {
   //address to index row and col - shared in sdram
   val address_bus = Output(UInt(p.address_width.W))
   //when reading its output when writing it is input
-  //val dq = Analog((p.data_width.W))
+  val dq = Analog((p.data_width.W))
 }
 
 class SDRAMControllerIO(p: SDRAMControllerParams) extends Bundle {
@@ -105,7 +105,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
   def initialize_controls(): Unit = {
     //Default SDRAM signals
     control.address_bus := DontCare
-    //control.data_out_and_in := DontCare
+    control.dq := DontCare
     control.cs := DontCare
     control.ras := DontCare
     control.cas := DontCare
@@ -120,6 +120,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := true.B
     control.we := true.B
     control.address_bus := DontCare
+    control.dqm := 0.U(2.W)
   }
 
   def Precharge(): Unit = {
@@ -128,6 +129,8 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := true.B
     control.we := false.B
     control.address_bus := DontCare
+    control.dqm := 0.U(2.W)
+
   }
 
   def Refresh(): Unit = {
@@ -136,6 +139,8 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := false.B
     control.we := true.B
     control.address_bus := DontCare
+    control.dqm := 0.U(2.W)
+
   }
 
   def Active(row_and_bank: UInt): Unit = {
@@ -144,6 +149,8 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := true.B
     control.we := true.B
     control.address_bus := row_and_bank
+    control.dqm := 3.U(2.W)
+
   }
 
   def Program_Mode_Reg(wrB_wrM_opcode_cas_bT_bL: UInt): Unit = {
@@ -152,6 +159,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := false.B
     control.we := false.B
     control.address_bus := wrB_wrM_opcode_cas_bT_bL
+    control.dqm := 0.U(2.W)
   }
 
   def Read(column: UInt): Unit = {
@@ -160,6 +168,7 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := false.B
     control.we := true.B
     control.address_bus := column
+    control.dqm := 3.U(2.W)
   }
 
   def Write(column: UInt): Unit = {
@@ -168,9 +177,10 @@ class SDRAMCommands(parameters: SDRAMControllerParams, controls: ToSDRAM) {
     control.cas := false.B
     control.we := false.B
     control.address_bus := column
+    control.dqm := 3.U(2.W)
   }
 }
-/*
+
 class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackBoxInline {
     val io = IO(new Bundle {
     val data_inout = Analog(p.data_width.W)
@@ -179,7 +189,7 @@ class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackB
     val oen = Input(Bool())
   })
 
-  setInline("AnalogConnection.v",
+  setInline("AnalogConnection.sv",
     s"""
     |module AnalogConnection(
     |     inout [${p.data_width - 1}:0] data_inout,
@@ -192,4 +202,4 @@ class AnalogConnection(p: SDRAMControllerParams) extends BlackBox with HasBlackB
     |endmodule
     """.stripMargin)
 }
- */
+

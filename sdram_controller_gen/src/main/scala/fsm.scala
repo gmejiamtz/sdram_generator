@@ -47,15 +47,15 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
       refresh_counter.get.inc()
     }
   }
-  /*
+  
   //handle analog conntion
   val handle_analog = Module(new AnalogConnection(p))
   io.sdram_control.dq <> handle_analog.io.data_inout
   handle_analog.io.write_data := io.write_data
   handle_analog.io.oen := oen_reg
   io.read_data := handle_analog.io.read_data
-   */
-  io.read_data := DontCare //defaults to this since analog handles data movement
+   
+  //io.read_data := DontCare //defaults to this since analog handles data movement
   //other outputs
   io.state_out := state
   io.read_data_valid := false.B
@@ -85,9 +85,9 @@ class SDRAMController(p: SDRAMControllerParams) extends Module {
         ) {
           //time to program
           //address holds programmed options
-          //12'b00_wb_opcode_cas_bT_bL
+          //address_width'b0_wb_opcode_cas_bT_bL
           val mode = Cat(
-            0.U(2.W),
+            0.U((p.address_width - 13).W),
             p.write_burst.U(1.W),
             p.opcode.U(2.W),
             p.cas_latency.U(3.W),
